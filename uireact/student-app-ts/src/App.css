@@ -1,0 +1,18 @@
+.App {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+}
+
+li {
+  list-style-type: none;
+}
+
+button {
+  height: 30px;
+  width: 150px;
+  background-color: turquoise;
+  border-radius: 5px;
+}

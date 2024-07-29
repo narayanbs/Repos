@@ -1,0 +1,6 @@
+isort
+flake8
+flake8-quotes
+mypy
+pytest
+pytest-cov

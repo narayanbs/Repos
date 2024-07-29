@@ -1,0 +1,28 @@
+ccplus
+eliben-concurrency
+pyasync-app
+web-app-from-scratch
+
+react-state-examples
+expense-tracker
+
+React_django_sqlite --> 
+django_sqlite_backend ---> 
+poetry install
+python manage.py makemigrations EmployeeApp
+python manage.py migrate
+
+Install SQLiteStudio and open db.sqlite3.
+
+Insert date into department and employee
+
+insert into EmployeeApp_department values(1, "IT")
+insert into EmployeeApp_department values(2, "Support")
+insert into EmployeeApp_department values(3, "HR")
+
+python manage.py runserver and curl  localhost:8000/department
+
+Reactjs_frontend -->
+npm install 
+npm start
+

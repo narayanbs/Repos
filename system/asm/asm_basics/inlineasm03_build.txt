@@ -1,0 +1,47 @@
+Compile and disassemble:
+
+ gcc -std=gnu99 -O3 -ggdb3 -Wall -Wextra -pedantic -o main.out inlineasm03.c
+ objdump -d main.out
+
+Disassembly contains:
+
+00000000000011a0 <inc>:
+    11a0:       55                      push   %rbp
+    11a1:       48 89 e5                mov    %rsp,%rbp
+    11a4:       41 57                   push   %r15
+    11a6:       41 56                   push   %r14
+    11a8:       41 55                   push   %r13
+    11aa:       41 54                   push   %r12
+    11ac:       53                      push   %rbx
+    11ad:       48 83 ec 08             sub    $0x8,%rsp
+    11b1:       48 89 7d d0             mov    %rdi,-0x30(%rbp)
+    11b5:       48 8b 45 d0             mov    -0x30(%rbp),%rax
+    11b9:       48 8d 65 d8             lea    -0x28(%rbp),%rsp
+    11bd:       5b                      pop    %rbx
+    11be:       41 5c                   pop    %r12
+    11c0:       48 83 c0 01             add    $0x1,%rax
+    11c4:       41 5d                   pop    %r13
+    11c6:       41 5e                   pop    %r14
+    11c8:       41 5f                   pop    %r15
+    11ca:       5d                      pop    %rbp
+    11cb:       c3                      retq   
+    11cc:       0f 1f 40 00             nopl   0x0(%rax)
+and so we clearly see that the following are pushed and popped:
+
+rbx
+r12
+r13
+r14
+r15
+rbp
+
+The only missing one from the spec is rsp, but we expect the stack to be restored of course. Careful reading of the assembly confirms that it is maintained in this case:
+
+sub $0x8, %rsp: allocates 8 bytes on stack to save %rdi at %rdi, -0x30(%rbp), which is done for the inline assembly +m constraint
+lea -0x28(%rbp), %rsp restores %rsp back to before the sub, i.e. 5 pops after mov %rsp, %rbp
+there are 6 pushes and 6 corresponding pops
+no other instructions touch %rsp
+Tested in Ubuntu 18.10, GCC 8.2.0.
+
+https://stackoverflow.com/questions/18024672/what-registers-are-preserved-through-a-linux-x86-64-function-call
+

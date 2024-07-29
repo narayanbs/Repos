@@ -1,0 +1,5 @@
+Threads share .text, .data, heap, file descriptors, signal and signal handlers, current working directory, user and group id, 
+- Each thread has a unique thread id, set of registers, stack --> stack pointer, return address,  local variables,  signal mask, 
+priority, errno 
+
+

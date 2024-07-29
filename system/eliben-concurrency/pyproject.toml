@@ -1,0 +1,27 @@
+[tool.poetry]
+name = "eliben-concurrency"
+version = "0.1.0"
+description = ""
+authors = ["Narayan <narayanbala@gmail.com>"]
+readme = "README.md"
+packages = [{include = "eliben_concurrency"}]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+
+[tool.poetry.group.D.dependencies]
+black = "^23.1.0"
+flake8-bugbear = "^23.2.13"
+isort = "^5.12.0"
+mypy = "^1.0.1"
+
+[tool.black]
+line-length = 100
+
+[tool.isort]
+profile = "black"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
