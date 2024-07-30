@@ -1,16 +1,16 @@
 /* Here, we’re using clone() in two ways, once with the CLONE_VM flag and once without.
- We’re passing a buffer into the child process, and the child process writes a string to it.
- We then allocate a stack size for the child process and create a function that checks whether
- we’re executing the file using the CLONE_VM (vm) option. Furthermore, we’re creating a buffer
- of 100 bytes in the parent process and copying a string to it, then executing
- the clone() system call and checking for errors.
- When we execute it without the vm argument, the CLONE_VM flag isn’t active,
- and the parent process virtual memory is cloned into the child process.
- The child process can access the message passed by the parent process in buffer,
- but anything written into buffer by the child isn’t accessible to the parent process.
- But, when we pass in the vm argument, CLONE_VM is active and the child process shares
- the parent’s process memory. We can see it writing into buffer
-*/
+ * 
+ * We start out by allocating a stack for the child process and then checking for the CLONE_VM
+ * option. We then create a buffer of 100 bytes in the parent process and copy a string into it.
+ *
+ * Now if we execute the clone system call without CLONE_VM, the parent process' virtual memory
+ * is cloned into the child pricess. The child process can access the message passed by the
+ * parent process in buffer. But anything written into the buffer isn't accesible to the parent
+ * process.
+ * If we execute the clone system call with CLONE_VM flag, the child process shares the
+ * parent's process memory. Now if we write into the buffer, it will be available to the parent
+ * process
+ */
 
 //  We have to define the _GNU_SOURCE to get access to clone(2) and the CLONE_*
 #define _GNU_SOURCE
