@@ -1,0 +1,40 @@
+Youtube course: By (freeCodeCamp.org)
+React Native Course – Android and iOS App Development 
+https://www.youtube.com/watch?v=obH0Po_RdWk
+
+Weather API site:
+
+openweathermap.org
+
+username: laputapazu
+password: chunnemari
+key: <get_key_from_openweathermap>
+
+url: http://api.openweathermap.org/data/2.5/weather?q=London,uk&APPID=<append_key_here>
+
+
+Project Configuration
+======================
+Install android studio
+initialize emulator
+
+emulator -list-avds
+emulator -avd Pixel_XL_API_33
+
+npm install -g expo-cli
+npx create-expo-app WeatherApp
+npm start 
+choose a (android) and the app will be loaded in the emulator
+
+
+// React native cli 
+npx react-native start --> for metro
+npx react-native run-android
+
+//
+
+npm install eslint --save-dev
+npx eslint --init
+npm install @react-native-community/eslint-config --save-dev
+npm install --save-dev --save-exact prettier
+touch .prettier.js
