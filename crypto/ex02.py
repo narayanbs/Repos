@@ -11,7 +11,10 @@
 # on the message and shared secret key. 
 # The key and message are hashed in seperate steps making it secure.
 #
-# HMAC (Hash-based Message Authentication Code) is a cryptographic algorithm used to ensure data integrity and authenticity. It combines a cryptographic hash function with a secret key to provide both authentication and integrity verification of the data being transmitted or stored.
+# HMAC (Hash-based Message Authentication Code) is a cryptographic algorithm used to ensure data integrity and authenticity. 
+# It combines a cryptographic hash function with a secret key to provide both authentication and integrity verification of 
+# the data being transmitted or stored.
+#
 # How HMAC Works:
 #
 #     Input:
@@ -22,21 +25,24 @@
 #     Process: The HMAC algorithm works as follows:
 #
 #         Key Preparation:
-#             If the key is longer than the hash function's block size, it is hashed first.
+#             The secret key should be a specific length, typically the block size of the hash function.
+#             If the key is longer than the hash function's block size, it is hashed using the same hash function to 
+#             reduce its length to block size.
 #             If the key is shorter than the block size, it is padded with zero bytes to the block size.
 #
 #         Inner Hashing:
-#             The key is XOR'd with the inner padding (0x36 byte repeated).
+#             Inner key is created by XOR-ing the key with the inner padding (0x36 byte repeated) 
 #             This is then concatenated with the message and hashed using the chosen hash function:
 #             H(K ⊕ 0x36 || M).
 #
 #         Outer Hashing:
-#             The key is XOR'd with the outer padding (0x5C byte repeated).
+#             Outer key is created by XOR-ing the key with the outer padding (0x5C byte repeated).
 #             The result from the inner hashing step is concatenated with the outer XORed key and hashed:
 #             H(K ⊕ 0x5C || H(K ⊕ 0x36 || M)).
 #
 #     Output:
-#         The final output is a fixed-size hash value that serves as the HMAC, which is used to verify the authenticity of the message. The receiver will perform the same process using the shared secret key and check if the HMAC matches.
+#         The final output is a fixed-size hash value that serves as the HMAC, which is used to verify the authenticity of the message. 
+#         The receiver will perform the same process using the shared secret key and check if the HMAC matches.
 #
 # Example in Detail:
 #
@@ -51,7 +57,8 @@
 #     Prepare the key by ensuring it's the correct length (using padding or hashing if necessary).
 #     Calculate the inner hash by XOR'ing the key with the inner padding (0x36 byte) and concatenating it with the message.
 #     Hash the result using SHA-256.
-#     Calculate the outer hash by XOR'ing the key with the outer padding (0x5C byte) and concatenating it with the result from the inner hash.
+#     Calculate the outer hash by XOR'ing the key with the outer padding (0x5C byte) and concatenating it with the result 
+#     from the inner hash.
 #     Hash the result again to produce the final HMAC.
 #
 import hashlib, hmac, binascii
@@ -59,8 +66,6 @@ import hashlib, hmac, binascii
 def mac_func(key, msg):
     mac = hmac.new(key, msg, hashlib.sha256).digest()
     print("HMAC_SHA256:     ", binascii.hexlify(mac))
-
-
 
 
 if __name__ == "__main__":
