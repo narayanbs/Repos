@@ -11,30 +11,49 @@
 # on the message and shared secret key. 
 # The key and message are hashed in seperate steps making it secure.
 #
-# Basically in HMAC, the hash function will be applied to the plain text message.
-# But before applying, we have to compute S bits and then append it to plain text 
-# and after that apply the hash function. 
-# For generating those S bits we make use of a key that is shared between the sender and receiver.
-# 
-# Here are the steps in detail:  
-# Message Pre-processing:
-# The message (or data) is pre-processed to ensure compatibility with the hash function. 
-# This typically involves padding and/or concatenating additional information to the message.
-# Key Modification:
-# The secret key is modified to create two different keys:
-# Inner Key: Derived by XORing the secret key with a specific constant (usually a block of 0x36 bytes).
-# Outer Key: Derived by XORing the secret key with another constant (usually a block of 0x5C bytes).
-# Hash Calculation:
-# Two hashes are calculated sequentially:
-# First Hash: Compute the hash of the concatenation of the inner key and the pre-processed message.
-# Second Hash: Compute the hash of the concatenation of the outer key and the result of the first hash.
-# Output:
-# The result of the second hash is the HMAC, which is a fixed-size hash value that serves as both a 
-# message authentication code and a means of verifying the integrity of the message.
+# HMAC (Hash-based Message Authentication Code) is a cryptographic algorithm used to ensure data integrity and authenticity. It combines a cryptographic hash function with a secret key to provide both authentication and integrity verification of the data being transmitted or stored.
+# How HMAC Works:
 #
-# Note: Difference between MAC and digital signatures is that assymetric keys are used
-# in digital signatures.
-
+#     Input:
+#         Message (M): The data to be hashed, like a file or string.
+#         Secret Key (K): A private key known only to the sender and receiver.
+#         Hash Function (H): A cryptographic hash function like SHA-256, MD5, or SHA-1.
+#
+#     Process: The HMAC algorithm works as follows:
+#
+#         Key Preparation:
+#             If the key is longer than the hash function's block size, it is hashed first.
+#             If the key is shorter than the block size, it is padded with zero bytes to the block size.
+#
+#         Inner Hashing:
+#             The key is XOR'd with the inner padding (0x36 byte repeated).
+#             This is then concatenated with the message and hashed using the chosen hash function:
+#             H(K ⊕ 0x36 || M).
+#
+#         Outer Hashing:
+#             The key is XOR'd with the outer padding (0x5C byte repeated).
+#             The result from the inner hashing step is concatenated with the outer XORed key and hashed:
+#             H(K ⊕ 0x5C || H(K ⊕ 0x36 || M)).
+#
+#     Output:
+#         The final output is a fixed-size hash value that serves as the HMAC, which is used to verify the authenticity of the message. The receiver will perform the same process using the shared secret key and check if the HMAC matches.
+#
+# Example in Detail:
+#
+# Let's assume:
+#
+#     Key (K) = "key123"
+#     Message (M) = "Hello, world!"
+#     Hash function (H) = SHA-256
+#
+# Step-by-Step Process:
+#
+#     Prepare the key by ensuring it's the correct length (using padding or hashing if necessary).
+#     Calculate the inner hash by XOR'ing the key with the inner padding (0x36 byte) and concatenating it with the message.
+#     Hash the result using SHA-256.
+#     Calculate the outer hash by XOR'ing the key with the outer padding (0x5C byte) and concatenating it with the result from the inner hash.
+#     Hash the result again to produce the final HMAC.
+#
 import hashlib, hmac, binascii
 
 def mac_func(key, msg):

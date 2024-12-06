@@ -36,8 +36,15 @@ def hashfunc():
     sha3_512hash = hashlib.sha3_512(data).digest()
     print("SHA3-512:    ",binascii.hexlify(sha3_512hash))
 
-    blake2s = hashlib.new("blake2s", data).digest()
+    # can produce 1 and 32-byte digest
+    # for 8-bit and 32-bit platform
+    blake2s = hashlib.blake2s(data).digest()
     print("BLAKE2s:     ", binascii.hexlify(blake2s))
+    
+    # can produce 1 and 64-byte digest
+    # for 64-bit platform
+    blake2s = hashlib.blake2b(data).digest()
+    print("BLAKE2b:     ", binascii.hexlify(blake2s))
 
     ripemd160 = hashlib.new("ripemd160", data).digest()
     print("RIPEMD-160:  ", binascii.hexlify(ripemd160))
