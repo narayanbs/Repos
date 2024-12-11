@@ -7,9 +7,6 @@
 #
 # There are different MAC algorithm like HMAC, KMAC, CMAC, GMAC etc
 #
-# HMAC is a type of MAC algorithm that uses a Cryptographic hash function 
-# on the message and shared secret key. 
-# The key and message are hashed in seperate steps making it secure.
 #
 # HMAC (Hash-based Message Authentication Code) is a cryptographic algorithm used to ensure data integrity and authenticity. 
 # It combines a cryptographic hash function with a secret key to provide both authentication and integrity verification of 
