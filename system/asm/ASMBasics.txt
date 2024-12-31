@@ -40,6 +40,9 @@ YMM0 YMM1 YMM2 YMM3 YMM4 YMM5 YMM6 YMM7 YMM8 YMM9 YMM10 YMM11 YMM12 YMM13 YMM14 
 
 SSE and AVX registers are used to perform floating point artihmetic and integer arithmetic. 
 
+RIP -- Instruction Pointer
+RFLAGS -- Flags register (stores condition flags)
+
 Memory operands
 ----------------
 [number]   // displacement
@@ -83,9 +86,6 @@ Most of the instructions will be as follows
 * add mem, imm
 
 Instructions with two memory operands are very very rare.. we hardly find them. 
-
-
-
 
 Defining data and reserving space
 -----------------------------------
@@ -150,7 +150,9 @@ the first memory parameter is at [rsp+8], etc.
 You have to make that extra space yourself, by pushing something or subtracting 8 from rsp.
 
 * The only registers that the called function is required to preserve (the callee-saved registers) are: rbp, rbx, r12, r13, r14, r15. 
-All others are free to be changed by the called function.
+  and XMM0 (for floating point return values). All others are free to be changed by the called function.
+
+* Similarly the caller function is required to save RAX, RCX, RDX, RSI, RDI, R8 to R11, XMM0 to XMM7
 
 * Integers are returned in rax or rdx:rax, and floating point values are returned in xmm0 or xmm1:xmm0.
 
