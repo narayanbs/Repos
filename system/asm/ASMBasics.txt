@@ -129,6 +129,20 @@ arguments:  dq  command
 
 mov rsi, arguments
 
+Note:--------------------
+An example of memory addresses using  base + index * scale + displacement  
+Let's consider an array of ten integers i.e. int a[10];
+a[5] provides access to the sixth integer. 
+To do this in assembly 
+base = address of array
+index = 5 (for the sixth element)
+scale = 4 (each integer is four bytes)
+displacement = 0
+
+mov rsi, 5                  ; Load the index (6th element) into rsi
+mov rdi, arr                ; Load base address of arr into rdi
+mov eax, [rdi + rsi*4]      ; Access the 6th element of arr (rdi + 5*4)
+
 
 Understanding Calling Conventions when calling a C library
 -----------------------------------------------------------
