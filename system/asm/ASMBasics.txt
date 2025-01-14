@@ -65,17 +65,22 @@ Immediate operands
 ------------------
 200          ; decimal
 0200         ; still decimal - the leading 0 does not make it octal
-0200d        ; explicitly decimal - d suffix
 0d200        ; also decimal - 0d prefex
-0c8h         ; hex - h suffix, but leading 0 is required because c8h looks like a var
+0200d        ; explicitly decimal - d suffix
+
 0xc8         ; hex - the classic 0x prefix
 0hc8         ; hex - for some reason NASM likes 0h
+0c8h         ; hex - h suffix, but leading 0 is required because c8h looks like a var
+
+0q310        ; octal - 0q prefix
 310o         ; octal - o suffix
 0777o        ; octal - o suffix
 310q         ; octal - q suffix
-0q310        ; octal - 0q prefix
-11001000b    ; binary - b suffix
+
 0b1100_1000  ; binary - 0b prefix, and by the way, underscores are allowed
+11001000b    ; binary - b suffix
+
+-------------------
 
 Most of the instructions will be as follows
 
