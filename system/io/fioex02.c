@@ -38,6 +38,7 @@ int main(int argc, char *argv[]) {
 
   printf("File type:                ");
 
+  // st_mode gives you a bitmask of filetype and permissions)
   switch (sb.st_mode & S_IFMT) {
     case S_IFBLK:
       printf("block device\n");
