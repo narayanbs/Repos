@@ -1,29 +1,61 @@
 /*
- C program to get the length of a string with multibyte characters
-*/
-#include <locale.h>
+ * Note: We need to define _XOPEN_SOURCE feature test macro
+ * to get strptime function
+ */
+#define _XOPEN_SOURCE
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <time.h>
+#include <unistd.h>
 
 int main(void) {
-  setlocale(LC_ALL, "");
+  // seconds since epoch
+  time_t t = time(NULL);  // seconds since epoch
 
-  char* mb_string = "\u20ac1.23";
-  size_t mb_len = strlen(mb_string);
+  printf("The Number of seconds since epoch: %ld\n", t);
 
-  wchar_t wc_string[128];
-  size_t wc_len = mbstowcs(wc_string, mb_string, 128);
+  // print date and time in human readable format
+  printf("Time in readable format %s", ctime(&t));
 
-  printf("multibyte: %s (%zu bytes)\n", mb_string, mb_len);
-  printf("wide char: %ls (%zu characters)\n", wc_string, wc_len);
-  
-  // Another way to get the length of a multibyte string is 
-  // The following string has 7 characters
-  size_t len_in_chars = mbstowcs(NULL, "§¶°±π€•", 0);
-  printf("%zu", len_in_chars);  // 7
+  // local time
+  struct tm *ltime = localtime(&t);
+  printf("Local time is %s", asctime(ltime));
 
-  // Again, that’s a non-portable POSIX extension.
-  // And, of course, if you want to convert the other way, it’s wcstombs().
+  // gm time
+  struct tm *gtime = gmtime(&t);
+  printf("The greenwich mean time is %s", asctime(gtime));
+
+  // gmtime in seconds
+  time_t st = mktime(gtime);
+  printf("The greenwich mean time in seconds since epoch: %ld\n", st);
+
+  // Parsing time
+  // Note: strptime is only available if _XOPEN_SOURCE feature test macro is defined
+  struct tm ptime;
+  char *result = strptime("2025-01-20 15:30:00", "%Y-%m-%d %H:%M:%S", &ptime);
+  if (result != NULL) {
+    printf("Parsed time : Year %d, Month %d, Day %d, Hour %d, Minute %d, Seconds %d\n",
+           ptime.tm_year + 1900, ptime.tm_mon + 1, ptime.tm_wday, ptime.tm_hour, ptime.tm_min,
+           ptime.tm_sec);
+  }
+
+  // formatting time
+  char mytime[50];
+  time_t time3;
+  struct tm *tmptime = localtime(&time3);
+
+  strftime(mytime, sizeof(mytime), "%x - %I:%M %p", tmptime);
+
+  printf("Formatted date & time : %s\n", mytime);
+
+  // Difference between time in seconds
+  time_t time1, time2;
+  time(&time1);
+  for (int sec = 1; sec <= 3; sec++) {
+    sleep(1);
+  }
+  time(&time2);
+
+  printf("Difference between time is %.2f seconds\n", difftime(time2, time1));
+
   return 0;
 }
