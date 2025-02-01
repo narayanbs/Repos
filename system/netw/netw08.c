@@ -53,7 +53,7 @@ int main(void) {
 
   int *fds = malloc(sizeof(int) * MAXFDS);
   int fd_count = 0;
-  int fd_size = 0;
+  int fd_size = MAXFDS;
 
   int listener;                        // listening socket descriptor
   int newfd;                           // newly accept()ed socket descriptor
