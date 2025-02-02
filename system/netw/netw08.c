@@ -206,10 +206,8 @@ int main(void) {
               del_from_fds(&fds, fd, &fd_count);
             }
           } else {
-            printf("Number of bytes read: %d\n", nbytes);
             for (j = 0; j < fd_count; j++) {
               int dest_fd = fds[j];
-              printf("Destination fd: %d, source fd: %d, Listener fd: %d\n", dest_fd, fd, listener);
               if (dest_fd != fd && dest_fd != listener) {
                 if (send(dest_fd, buf, nbytes, 0) == -1) {
                   perror("send failed");
