@@ -3,6 +3,7 @@
 */
 
 #include <arpa/inet.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <netdb.h>
 #include <netinet/in.h>
@@ -152,8 +153,17 @@ int main(void) {
       if (events[i].data.fd == listener) {
         addrlen = sizeof remoteaddr;
         newfd = accept(listener, (struct sockaddr *)&remoteaddr, &addrlen);
-        if (newfd == -1) {
-          perror("accept");
+
+        if (newfd < 0) {
+          if (errno == EAGAIN || errno == EWOULDBLOCK) {
+            // This can happen due to the nonblocking socket mode; in this
+            // case don't do anything, but print a notice (since these events
+            // are extremely rare and interesting to observe...)
+            printf("accept returned EAGAIN or EWOULDBLOCK\n");
+          } else {
+            perror("accept");
+            exit(1);
+          }
         } else {
           printf(
               "epoll: new connection from %s on "
@@ -162,9 +172,16 @@ int main(void) {
                         INET6_ADDRSTRLEN),
               newfd);
 
+          int flags = fcntl(newfd, F_GETFL, 0);
+          if (flags == -1) {
+            perror("getfl failed");
+            exit(EXIT_FAILURE);
+          }
+          fcntl(newfd, F_SETFL, flags | O_NONBLOCK);
+
           struct epoll_event event = {0};
           event.data.fd = newfd;
-          event.events |= EPOLLIN;
+          event.events |= EPOLLIN | EPOLLET;
 
           if (epoll_ctl(epollfd, EPOLL_CTL_ADD, newfd, &event) < 0) {
             perror("epoll_ctl EPOLL_CTL_ADD");
@@ -175,21 +192,24 @@ int main(void) {
       } else {
         int fd = events[i].data.fd;
         if (events[i].events & EPOLLIN) {
-          if ((nbytes = recv(fd, buf, sizeof buf, 0) <= 0)) {
-            if (nbytes == 0) {
-              printf("epoll: socket %d hung up\n", fd);
-            } else {
+          nbytes = recv(fd, buf, sizeof buf, 0);
+          if (nbytes <= 0) {
+            if (nbytes < 0) {
               perror("recv");
+            } else {
+              printf("epoll: socket %d hung up\n", fd);
+              if (epoll_ctl(epollfd, EPOLL_CTL_DEL, fd, NULL) < 0) {
+                perror("epoll_ctl EPOLL_CTL_DEL");
+                exit(EXIT_FAILURE);
+              }
+              close(fd);
+              del_from_fds(&fds, fd, &fd_count);
             }
-            close(fd);
-            if (epoll_ctl(epollfd, EPOLL_CTL_DEL, fd, NULL) < 0) {
-              perror("epoll_ctl EPOLL_CTL_DEL");
-              exit(EXIT_FAILURE);
-            }
-            del_from_fds(&fds, fd, &fd_count);
           } else {
+            printf("Number of bytes read: %d\n", nbytes);
             for (j = 0; j < fd_count; j++) {
               int dest_fd = fds[j];
+              printf("Destination fd: %d, source fd: %d, Listener fd: %d\n", dest_fd, fd, listener);
               if (dest_fd != fd && dest_fd != listener) {
                 if (send(dest_fd, buf, nbytes, 0) == -1) {
                   perror("send failed");
