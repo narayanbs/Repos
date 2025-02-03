@@ -201,9 +201,9 @@ int main(void) {
                 perror("epoll_ctl EPOLL_CTL_DEL");
                 exit(EXIT_FAILURE);
               }
-              close(fd);
-              del_from_fds(&fds, fd, &fd_count);
             }
+            close(fd);
+            del_from_fds(&fds, fd, &fd_count);
           } else {
             for (j = 0; j < fd_count; j++) {
               int dest_fd = fds[j];
