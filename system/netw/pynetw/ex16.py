@@ -1,3 +1,4 @@
+# Handle GET requests
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib import parse
 
