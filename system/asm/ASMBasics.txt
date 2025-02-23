@@ -203,3 +203,41 @@ Note that _mm_cmpeq_sd and _mm_cmpeq_pd are SSE2 while _mm_cmpeq_ss and _mm_cmpe
 ---------------------------------------------
 Next Read Articles/Assembly/NASM Tutorial.html to understand SIMD and floating point examples.
 Next Read Articles/Assembly/GCC-Inline-Assembly-HOWTO.html to understand how assembly can be used inline in C programs.
+------------------------------------------------------------------------------------------------------------------------------------
+
+Varargs function, vector registers and RAX 
+-----------------------------------
+
+In the x86_64 ABI, if a function has variable arguments then AL (which is part of EAX) is expected 
+to hold the number of vector registers used to hold arguments to that function.
+
+For example:
+
+printf("%d", 1);
+
+has an integer argument so there’s no need for a vector register, hence AL is set to 0.
+
+On the other hand, if you change the example to:
+
+printf("%f", 1.0f);
+
+then the floating-point literal is stored in a vector register and, correspondingly, AL is set to 1:
+
+movsd   LC1(%rip), %xmm0
+leaq    LC0(%rip), %rdi
+movl    $1, %eax
+call    _printf
+
+As expected:
+
+printf("%f %f", 1.0f, 2.0f);
+
+will cause the compiler to set AL to 2 since there are two floating-point arguments:
+
+movsd   LC0(%rip), %xmm0
+movapd  %xmm0, %xmm1
+movsd   LC2(%rip), %xmm0
+leaq    LC1(%rip), %rdi
+movl    $2, %eax
+call    _printf
+
