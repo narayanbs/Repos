@@ -168,10 +168,10 @@ the first memory parameter is at [rsp+8], etc.
 * When you are inside a function, remember the return address (8 bytes) is on the stack, so when you call another function rsp is not aligned. 
 You have to make that extra space yourself, by pushing something or subtracting 8 from rsp.
 
-* The only registers that the called function is required to preserve (the callee-saved registers) are: rbp, rbx, r12, r13, r14, r15. 
-  and XMM0 (for floating point return values). All others are free to be changed by the called function.
+* functions are required preserve rbx, rbp, rsp, r12, r13, r14, r15 registers. floating point registers are not preserved
+between function calls. All others are free to be changed by the calling function. 
 
-* Similarly the caller function is required to save RAX, RCX, RDX, RSI, RDI, R8 to R11, XMM0 to XMM7
+* So before invoking, the caller function is required to save RAX, RCX, RDX, RSI, RDI, R8 to R11, XMM0 to XMM7
 
 * Integers are returned in rax or rdx:rax, and floating point values are returned in xmm0 or xmm1:xmm0.
 
