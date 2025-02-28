@@ -1,5 +1,8 @@
 /*
-This program has to be run in root.
+This program has to be run in root. and pass an IP instead of a hostname
+sudo ./netw13 142.98.23.3 
+Make sure you comment line 364 setsockopt( ... SO_DONTROUTE) 
+
 This program creates a socket interface with protocol field set to "icmp". Now,  frame an ICMP
 header with packet type as "ICMP echo". This icmp header is attached to L3 packet in kernel network
 stack and now, the ICMP echo (ping) packets is sent to the destination host ip. On receiving ICMP
@@ -38,19 +41,19 @@ Program
 #define ICMP_DATA_LEN 56
 
 /* Store sent and received packet in the below arrays */
-char sendpacket[PACKET_SIZE]; // store the send package
-char recvpacket[PACKET_SIZE]; // store the recevice package
+char sendpacket[PACKET_SIZE];  // store the send package
+char recvpacket[PACKET_SIZE];  // store the recevice package
 
 int sockfd;
 int nsend = 0, nreceived = 0;
 
 /* Destination and local host address info */
-struct sockaddr_in dest_addr; // store the destination address info
-struct sockaddr_in from;      // store the localhost address info
+struct sockaddr_in dest_addr;  // store the destination address info
+struct sockaddr_in from;       // store the localhost address info
 
-struct timeval tm_recv; // store the time info when a package received
-pid_t pid;              // store the process id of main program
-char *hostname = NULL;  // store the host name (from the command line)
+struct timeval tm_recv;  // store the time info when a package received
+pid_t pid;               // store the process id of main program
+char *hostname = NULL;   // store the host name (from the command line)
 
 /******************************************************************************
  * Function Declarations
@@ -104,14 +107,15 @@ int unpack_icmp_reply(char *buf, int len) {
   double rtt;
 
   ip = (struct ip *)buf;
+
   /* Seek the ip header length, which is the length indicator of
    * ip header multiplied by 4
    * The header length indicates the number of 4-byte words contained
    * in the header.
    * The acceptable minimum is 5 and the maximum is 15
    */
-
   iphdrlen = ip->ip_hl << 2;
+
   /* Beyond the ip header, point to the ICMP header */
   icmp = (struct icmp *)(buf + iphdrlen);
   /* Total length of ICMP header and ICMP datagram*/
@@ -238,12 +242,12 @@ int frame_icmp_echo_header(int pack_no) {
   /* ICMP Header structure */
   icmp = (struct icmp *)sendpacket;
   /* ICMP echo TYPE */
-  icmp->icmp_type = ICMP_ECHO; // 8 : Echo Request
-  icmp->icmp_code = 0;         // 0 = net unreachable
+  icmp->icmp_type = ICMP_ECHO;  // 8 : Echo Request
+  icmp->icmp_code = 0;          // 0 = net unreachable
   icmp->icmp_cksum = 0;
   icmp->icmp_seq = pack_no;
   icmp->icmp_id = pid;
-  packsize = 8 + ICMP_DATA_LEN; // 8 + 56 (data) = 64 Bytes ICMP header
+  packsize = 8 + ICMP_DATA_LEN;  // 8 + 56 (data) = 64 Bytes ICMP header
   tval = (struct timeval *)icmp->icmp_data;
   gettimeofday(tval, NULL);
   /* Calculate checksum */
@@ -289,8 +293,7 @@ void recv_icmp_reply_packet() {
   while (nreceived < nsend) {
     if ((n = recvfrom(sockfd, recvpacket, sizeof(recvpacket), 0, (struct sockaddr *)&from,
                       &fromlen)) < 0) {
-      if (errno == EINTR)
-        continue;
+      if (errno == EINTR) continue;
 
       perror("recvfrom error");
       continue;
