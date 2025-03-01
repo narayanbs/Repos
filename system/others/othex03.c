@@ -2,14 +2,16 @@
  * Note: We need to define _XOPEN_SOURCE feature test macro
  * to get strptime function
  */
+#include <stdlib.h>
 #define _XOPEN_SOURCE
+
 #include <stdio.h>
 #include <time.h>
 #include <unistd.h>
 
 int main(void) {
   // seconds since epoch
-  time_t t = time(NULL);  // seconds since epoch
+  time_t t = time(NULL); // seconds since epoch
 
   printf("The Number of seconds since epoch: %ld\n", t);
 
@@ -29,13 +31,15 @@ int main(void) {
   printf("The greenwich mean time in seconds since epoch: %ld\n", st);
 
   // Parsing time
-  // Note: strptime is only available if _XOPEN_SOURCE feature test macro is defined
+  // Note: strptime is only available if _XOPEN_SOURCE feature test macro is
+  // defined
   struct tm ptime;
   char *result = strptime("2025-01-20 15:30:00", "%Y-%m-%d %H:%M:%S", &ptime);
   if (result != NULL) {
-    printf("Parsed time : Year %d, Month %d, Day %d, Hour %d, Minute %d, Seconds %d\n",
-           ptime.tm_year + 1900, ptime.tm_mon + 1, ptime.tm_wday, ptime.tm_hour, ptime.tm_min,
-           ptime.tm_sec);
+    printf("Parsed time : Year %d, Month %d, Day %d, Hour %d, Minute %d, "
+           "Seconds %d\n",
+           ptime.tm_year + 1900, ptime.tm_mon + 1, ptime.tm_wday, ptime.tm_hour,
+           ptime.tm_min, ptime.tm_sec);
   }
 
   // formatting time
@@ -46,6 +50,15 @@ int main(void) {
   strftime(mytime, sizeof(mytime), "%x - %I:%M %p", tmptime);
 
   printf("Formatted date & time : %s\n", mytime);
+
+  // timezone
+  setenv("TZ", "America/Los_Angeles", 1); // Define TZ environment variable
+  tzset();                                // Updat
+  time_t rawtime;
+  struct tm *tinfo = localtime(&rawtime);
+  printf("local time: %s", asctime(tinfo));
+  printf("timezone: %s -- %f\n", tinfo->tm_zone,
+         (double)(tinfo->tm_gmtoff) / 3600);
 
   // Difference between time in seconds
   time_t time1, time2;
