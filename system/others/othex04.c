@@ -12,6 +12,11 @@ int localpid(void) {
 }
 
 int main(int argc, char **argv) {
+  /* NTP adjusted Real-time clock timestamp on linux */
+  struct timespec ts;
+  clock_gettime(CLOCK_REALTIME, &ts);
+  printf("System time is %s\n", ctime(&ts.tv_sec));
+
   uint64_t diff;
   struct timespec start, end;
   int i;
@@ -31,7 +36,8 @@ int main(int argc, char **argv) {
   clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &end);   /* mark the end time */
 
   diff = BILLION * (end.tv_sec - start.tv_sec) + end.tv_nsec - start.tv_nsec;
-  printf("elapsed process CPU time = %llu nanoseconds\n", (long long unsigned int)diff);
+  printf("elapsed process CPU time = %llu nanoseconds\n",
+         (long long unsigned int)diff);
 
   exit(0);
 }
