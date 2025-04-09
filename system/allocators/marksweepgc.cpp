@@ -15,15 +15,15 @@
  * MIT License (C) 2020
  */
 
-#include <iostream>
-#include <memory>
-
-#include <map>
-#include <vector>
-
 #include <setjmp.h>
 
-template <typename... T> void print(const T &...t) {
+#include <iostream>
+#include <map>
+#include <memory>
+#include <vector>
+
+template <typename... T>
+void print(const T &...t) {
   (void)std::initializer_list<int>{(std::cout << t << "", 0)...};
   std::cout << "\n";
 }
@@ -45,7 +45,8 @@ struct ObjectHeader {
   size_t size;
 };
 
-template <typename T> void printVector(std::vector<T> const &input) {
+template <typename T>
+void printVector(std::vector<T> const &input) {
   print("\n{");
   for (int i = 0; i < input.size(); i++) {
     print("  ", input.at(i), ", ");
@@ -58,7 +59,9 @@ template <typename T> void printVector(std::vector<T> const &input) {
  * for any object which should be managed by GC.
  */
 struct Traceable {
-  ObjectHeader *getHeader() { return traceInfo.at(this); }
+  ObjectHeader *getHeader() {
+    return traceInfo.at(this);
+  }
 
   static void *operator new(size_t size) {
     // Allocate a block:
@@ -143,8 +146,22 @@ intptr_t *__stackBegin;
  * Initializes address of the main frame.
  */
 void gcInit() {
-  // `main` frame pointer:
+  // `Address of main` frame
+  //
+  // We can also use gcc builtin  __stackBegin = (intptr_t*)__builtin_frame_address(1);
+  // instead of the code below
+  //
+  // The way we do this is by storing the value of rbp into __rbp
+  // The stack frame of gcInit has a prologue in assembly as shown below
+  // push rbp
+  // mov rbp rsp
+  //
+  // rbp pushes the base address of the stack frame of main onto the stack
+  // and the current stack pointer is stored in rbp
   __READ_RBP();
+
+  // Here we dereference the stack address that is pointing to the value which is
+  // the address of the stack frame of main. This address is cast to (intptr_t*)
   __stackBegin = (intptr_t *)*__rbp;
 }
 
@@ -251,7 +268,7 @@ Node *createGraph() {
 
   auto A = new Node{.name = 'A', .left = B, .right = C};
 
-  return A; // Root
+  return A;  // Root
 }
 
 int main(int argc, char const *argv[]) {
