@@ -2,6 +2,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
 
 typedef struct FreeList_Node FreeList_Node;
 
@@ -87,7 +88,8 @@ FreeList_Node *freelist_find_first(FreeList *fl, size_t size, size_t alignment, 
   size_t padding = 0;
 
   while (node != NULL) {
-    padding = calc_padding_with_header((uintptr_t)node, (uintptr_t)alignment, sizeof(FreeList_Header));
+    padding =
+        calc_padding_with_header((uintptr_t)node, (uintptr_t)alignment, sizeof(FreeList_Header));
     size_t required_space = size + padding;
     if (node->block_size >= required_space) {
       break;
@@ -113,7 +115,8 @@ FreeList_Node *freelist_find_best(FreeList *fl, size_t size, size_t alignment, s
   size_t padding = 0;
 
   while (node != NULL) {
-    padding = calc_padding_with_header((uintptr_t)node, (uintptr_t)alignment, sizeof(FreeList_Header));
+    padding =
+        calc_padding_with_header((uintptr_t)node, (uintptr_t)alignment, sizeof(FreeList_Header));
     size_t required_space = size + padding;
     if (node->block_size >= required_space && (node->block_size - required_space < smallest_diff)) {
       best_node = node;
@@ -127,7 +130,8 @@ FreeList_Node *freelist_find_best(FreeList *fl, size_t size, size_t alignment, s
   return best_node;
 }
 
-void freelist_node_insert(FreeList_Node **phead, FreeList_Node *prev_node, FreeList_Node *new_node) {
+void freelist_node_insert(FreeList_Node **phead, FreeList_Node *prev_node,
+                          FreeList_Node *new_node) {
   if (prev_node == NULL) {
     if (*phead != NULL) {
       new_node->next = *phead;
@@ -145,7 +149,8 @@ void freelist_node_insert(FreeList_Node **phead, FreeList_Node *prev_node, FreeL
   }
 }
 
-void freelist_node_remove(FreeList_Node **phead, FreeList_Node *prev_node, FreeList_Node *del_node) {
+void freelist_node_remove(FreeList_Node **phead, FreeList_Node *prev_node,
+                          FreeList_Node *del_node) {
   if (prev_node == NULL) {
     *phead = del_node->next;
   } else {
@@ -199,12 +204,14 @@ void *freelist_alloc(FreeList *fl, size_t size, size_t alignment) {
 }
 
 void freelist_coalescence(FreeList *fl, FreeList_Node *prev_node, FreeList_Node *free_node) {
-  if (free_node->next != NULL && (void *)((char *)free_node + free_node->block_size) == free_node->next) {
+  if (free_node->next != NULL &&
+      (void *)((char *)free_node + free_node->block_size) == free_node->next) {
     free_node->block_size += free_node->next->block_size;
     freelist_node_remove(&fl->head, free_node, free_node->next);
   }
 
-  if (prev_node->next != NULL && (void *)((char *)prev_node + prev_node->block_size) == free_node) {
+  if (prev_node != NULL && prev_node->next != NULL &&
+      (void *)((char *)prev_node + prev_node->block_size) == free_node) {
     prev_node->block_size += free_node->next->block_size;
     freelist_node_remove(&fl->head, prev_node, free_node);
   }
@@ -221,8 +228,8 @@ void *freelist_free(FreeList *fl, void *ptr) {
   }
 
   header = (FreeList_Header *)((char *)ptr - sizeof(FreeList_Header));
-  free_node = (FreeList_Node *)header;
-  free_node->block_size = header->block_size + header->padding;
+  free_node = (FreeList_Node *)((char *)header - header->padding);
+  free_node->block_size = header->block_size;
   free_node->next = NULL;
 
   node = fl->head;
@@ -239,4 +246,18 @@ void *freelist_free(FreeList *fl, void *ptr) {
 
   freelist_coalescence(fl, prev_node, free_node);
   return fl;
+}
+
+int main() {
+  unsigned char buf[256];
+  FreeList fl = {0};
+  free_list_init(&fl, buf, sizeof(buf));
+  int *i;
+  float *f;
+  i = (int *)freelist_alloc(&fl, sizeof(int), 8);
+  f = (float *)freelist_alloc(&fl, sizeof(float), 8);
+  *i = 100;
+  *f = 234.234;
+  printf("%d : %f\n", *i, *f);
+  freelist_free(&fl, f);
 }
