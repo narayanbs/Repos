@@ -22,8 +22,8 @@ RAX	    Accumulator
 RBX	    Base	         
 RCX	    Counter	      
 RDX	    Data	       
-RSI	    Source	    
-RDI	    Destination	 
+RSI	    Source Index	    
+RDI	    Destination Index 
 RBP	    Base pointer
 RSP	    Stack pointer
 R8-R15	New registers
