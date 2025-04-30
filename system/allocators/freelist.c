@@ -4,6 +4,10 @@
 #include <stdint.h>
 #include <stdio.h>
 
+typedef enum Placement_Policy Placement_Policy;
+
+enum Placement_Policy { Placement_Policy_Find_First, Placement_Policy_Find_Best };
+
 typedef struct FreeList_Node FreeList_Node;
 
 struct FreeList_Node {
@@ -17,10 +21,6 @@ struct FreeList_Header {
   size_t block_size;
   size_t padding;
 };
-
-typedef enum Placement_Policy Placement_Policy;
-
-enum Placement_Policy { Placement_Policy_Find_First, Placement_Policy_Find_Best };
 
 typedef struct FreeList FreeList;
 
