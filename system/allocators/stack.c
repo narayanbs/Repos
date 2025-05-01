@@ -50,7 +50,7 @@ void *stack_alloc(Stack *s, size_t size) {
   sh->prev_offset = s->prev_offset;
   sh->padding = padding;
   s->prev_offset = s->curr_offset;
-  s->curr_offset = offset;
+  s->curr_offset = offset + size;
   void *ptr = (void *)aligned_addr;
   memset(ptr, 0, size);
   return ptr;
