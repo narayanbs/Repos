@@ -3,10 +3,18 @@
 
 global _start
 
+; section .bss is for uninitalized data
+; section .data is for initialized data 
+
 section .bss
   maxlines equ  8
   dataSize equ  44
   output: resb dataSize
+
+; If you want to use output in data section, then 
+;
+; section .data
+; output: times 44 db 0
 
 section .text
 _start:

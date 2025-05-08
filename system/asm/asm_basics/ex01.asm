@@ -2,13 +2,15 @@
 
 global _start
 
+; section .data is for initialized data 
+; section .bss is for uninitialized data
 section .data
 message: db "Hello chunai",0Ah
 
 section .text
 _start:
   ; write(sysout, message, messagelen)
-  mov rax, 1     
+  mov rax, 1
   mov rdi, 1
   mov rsi, message
   mov rdx, 13
