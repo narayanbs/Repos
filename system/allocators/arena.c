@@ -75,10 +75,10 @@ void *arena_resize_align(Arena *a, void *old_memory, size_t old_size, size_t new
     return arena_alloc_align(a, new_size, align);
   } else if (a->buf <= old_mem && old_mem < a->buf + a->buf_len) {
     if (a->buf + a->prev_offset == old_mem) {
-      a->curr_offset = a->prev_offset + new_size;
       if (new_size > old_size) {
         memset(&a->buf[a->curr_offset], 0, new_size - old_size);
       }
+      a->curr_offset = a->prev_offset + new_size;
       return old_memory;
     } else {
       void *new_memory = arena_alloc_align(a, new_size, align);
