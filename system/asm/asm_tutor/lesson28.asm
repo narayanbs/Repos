@@ -53,8 +53,8 @@ _accept:
 
 _fork:
  
-    mov     rax, 57             ; invoke SYS_FORK (kernel opcode 57)
     mov     rdi, rax            ; move return value of SYS_SOCKET into rdi (file descriptor for accepted socket, or -1 on error)
+    mov     rax, 57             ; invoke SYS_FORK (kernel opcode 57)
     syscall                     ; call the kernel
  
     cmp     rax, 0              ; if return value of SYS_FORK in rax is zero we are in the child process
