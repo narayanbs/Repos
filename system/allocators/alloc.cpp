@@ -6,10 +6,11 @@
  */
 
 #include <assert.h>
+#include <unistd.h>
+
 #include <functional>
 #include <iostream>
 #include <list>
-#include <unistd.h>
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
@@ -59,6 +60,10 @@ struct Block {
 
   /**
    * Payload pointer.
+   * This will guarantee that there will be no gap between the payload and the
+   * dynamic data that follows. Since data will be aligned to word_t, the word_t data
+   * that follows will also aligned and there will be no gap. Hence allocsize can
+   * return a size that is the required size - payload size.
    */
   word_t data[1];
 };
@@ -105,22 +110,22 @@ static std::list<Block *> free_list;
  * Segregated lists.
  */
 Block *segregatedLists[] = {
-    nullptr, //   8
-    nullptr, //  16
-    nullptr, //  32
-    nullptr, //  64
-    nullptr, // 128
+    nullptr,  //   8
+    nullptr,  //  16
+    nullptr,  //  32
+    nullptr,  //  64
+    nullptr,  // 128
 };
 
 /**
  * Segregated tops.
  */
 Block *segregatedTops[] = {
-    nullptr, //   8
-    nullptr, //  16
-    nullptr, //  32
-    nullptr, //  64
-    nullptr, // 128
+    nullptr,  //   8
+    nullptr,  //  16
+    nullptr,  //  32
+    nullptr,  //  64
+    nullptr,  // 128
 };
 
 /**
@@ -290,7 +295,9 @@ Block *freeList(size_t size) {
  * Gets bucket number from segregatedLists
  * based on the size.
  */
-inline int getBucket(size_t size) { return size / sizeof(word_t) - 1; }
+inline int getBucket(size_t size) {
+  return size / sizeof(word_t) - 1;
+}
 
 /**
  * Segregated fit algorithm.
@@ -315,16 +322,16 @@ Block *segregatedFit(size_t size) {
  */
 Block *findBlock(size_t size) {
   switch (searchMode) {
-  case SearchMode::FirstFit:
-    return firstFit(size);
-  case SearchMode::NextFit:
-    return nextFit(size);
-  case SearchMode::BestFit:
-    return bestFit(size);
-  case SearchMode::FreeList:
-    return freeList(size);
-  case SearchMode::SegregatedList:
-    return segregatedFit(size);
+    case SearchMode::FirstFit:
+      return firstFit(size);
+    case SearchMode::NextFit:
+      return nextFit(size);
+    case SearchMode::BestFit:
+      return bestFit(size);
+    case SearchMode::FreeList:
+      return freeList(size);
+    case SearchMode::SegregatedList:
+      return segregatedFit(size);
   }
 }
 
@@ -346,14 +353,15 @@ Block *coalesce(Block *block) {
 /**
  * Whether we should merge this block.
  */
-bool canCoalesce(Block *block) { return block->next && !block->next->used; }
+bool canCoalesce(Block *block) {
+  return block->next && !block->next->used;
+}
 
 /**
  * Returns object header.
  */
 Block *getHeader(word_t *data) {
-  return (Block *)((char *)data + sizeof(std::declval<Block>().data) -
-                   sizeof(Block));
+  return (Block *)((char *)data + sizeof(std::declval<Block>().data) - sizeof(Block));
 }
 
 /**
@@ -480,9 +488,7 @@ void traverse(const std::function<void(Block *)> &callback) {
 }
 
 void printBlocks() {
-  traverse([](Block *block) {
-    std::cout << "[" << block->size << ", " << block->used << "] ";
-  });
+  traverse([](Block *block) { std::cout << "[" << block->size << ", " << block->used << "] "; });
   std::cout << "\n";
 }
 
@@ -539,7 +545,7 @@ int main(int argc, char const *argv[]) {
   auto p3 = alloc(8);
   auto p3b = getHeader(p3);
   assert(p3b->size == 8);
-  assert(p3b == p2b); // Reused!
+  assert(p3b == p2b);  // Reused!
 
   printBlocks();
 
@@ -568,7 +574,7 @@ int main(int argc, char const *argv[]) {
 
   auto p6 = alloc(16);
   auto p6b = getHeader(p6);
-  assert(p6b == p4b); // Reused!
+  assert(p6b == p4b);  // Reused!
   assert(p6b->size == 16);
 
   printBlocks();
