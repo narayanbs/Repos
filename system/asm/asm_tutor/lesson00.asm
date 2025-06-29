@@ -14,17 +14,23 @@ section .bss
 
 section .text
 _start:
-  mov al,[byte_data]
+  ;mov al,byte[byte_data]
+  ;mov byte[result_byte], al
+  ; or 
+  mov al, [byte_data]
   mov [result_byte], al
 
+  ;mov ax, word[word_data]
+  ;mov word[result_word], ax
+  ;  or 
   mov ax, [word_data]
   mov [result_word], ax
 
-  mov eax,[dword_data]
-  mov [result_dword], eax
+  mov eax,dword[dword_data]
+  mov dword[result_dword], eax
 
-  mov rax,[qword_data]
-  mov [result_qword], rax
+  mov rax,qword[qword_data]
+  mov qword[result_qword], rax
 
   mov rax, 60
   xor rdi, rdi
