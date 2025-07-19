@@ -132,7 +132,7 @@ if __name__ == "__main__":
     # Below will stop printing the message after a while.
     # scheduler = Scheduler()
     # scheduler.add(async_repetitive_message("Unattended baggage will be destroyed", 2.5))
-    # scheduler.add(async_repetitive_message(lucas(), is_prime))
+    # scheduler.add(async_print_matches(lucas(), is_prime))
     # scheduler.run_to_completion()
 
     ## To prevent this Everything you call transitively from a coroutine should be non-blocking
