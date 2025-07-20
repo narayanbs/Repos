@@ -21,6 +21,11 @@ def is_prime(x):
     return True
 
 
+def print_matches(iterable, predicate):
+    for item in iterable:
+        if predicate(item):
+            print(item)
+
 def async_is_prime(x):
     if x < 2:
         return False
@@ -31,19 +36,26 @@ def async_is_prime(x):
     return True
 
 
-def async_print_matches(iterable, predicate):
-    for item in iterable:
-        if predicate(item):
-            print("Found :", item, end=", ")
-        yield
-
-
-# def async_print_matches(iterable, async_predicate):
+# def async_print_matches(iterable, predicate):
 #     for item in iterable:
-#         matches = yield from async_predicate(item)
+#         matches = False
+#         g = predicate(item)
+#         while True:
+#             try:
+#                 next(g)
+#             except StopIteration as s:
+#                 matches = s.value
+#                 break
+#             yield
 #         if matches:
-#             print("Found: ", item)
-#
+#             print(f"Found prime: {item}", end=", ")
+
+def async_print_matches(iterable, async_predicate):
+    for item in iterable:
+        matches = yield from async_predicate(item)
+        if matches:
+            print("Found prime: ", item)
+
 
 
 def repetitive_message(message, interval_seconds):
