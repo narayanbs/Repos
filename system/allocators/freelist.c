@@ -178,7 +178,7 @@ void *freelist_alloc(FreeList *fl, size_t size, size_t alignment) {
   printf("[ALLOC] Request size=%zu, alignment=%zu\n", size, alignment);
   printf("[ALLOC] Using free block at %p, size=%zu\n", (void *)node, node->block_size);
 
-  if (remaining > sizeof(struct FreeList_Node)) {
+  if (remaining >= sizeof(struct FreeList_Node)) {
     // make sure it's aligned
     void *ptr = (char *)node + required_space;
     uintptr_t curr_ptr = (uintptr_t)ptr;
@@ -258,32 +258,6 @@ void *freelist_free(FreeList *fl, void *ptr) {
   return fl;
 }
 
-// Test the allocator
-// int main() {
-//     unsigned char buf[512];   // Increased buffer size to avoid early OOM
-//     FreeList fl = {0};        // Allocator instance
-//
-//     free_list_init(&fl, buf, sizeof(buf));
-//     fl.policy = Placement_Policy_Find_First; // or Placement_Policy_Find_Best
-//
-//     int *i = (int *)freelist_alloc(&fl, sizeof(int), 8);
-//     float *f = (float *)freelist_alloc(&fl, sizeof(float), 8);
-//
-//     *i = 100;
-//     *f = 234.234f;
-//
-//     printf("%d : %f\n", *i, *f);
-//
-//     freelist_free(&fl, f);
-//
-//     // Try another allocation to verify freelist reuse after free
-//     float *f2 = (float *)freelist_alloc(&fl, sizeof(float), 8);
-//     *f2 = 123.456f;
-//     printf("%d : %f\n", *i, *f2);
-//
-//     return 0;
-// }
-
 int main() {
   unsigned char buf[512];  // Increased buffer size to avoid early OOM
   FreeList fl = {0};       // Allocator instance
@@ -350,6 +324,7 @@ int main() {
   }
 
   // Allocate a medium block to test if it fits into fragmented space
+  // Intentionally allocating a non-aligned size
   void *medium_block = freelist_alloc(&fl, 41, 8);
   if (medium_block) {
     printf("[Test5] Allocated medium block at %p\n", medium_block);
@@ -359,14 +334,14 @@ int main() {
 
   // Check the allocation of a block of remaining size
   // // Get the remaining block from free list
-  // currently we have a block of size 136 bytes left.
+  // currently we have a block of size 135 bytes left.
   size_t max_alloc_size = 119;
-  medium_block = freelist_alloc(&fl, max_alloc_size, 8);
+  void *remaining_block = freelist_alloc(&fl, max_alloc_size, 8);
 
-  if (medium_block == NULL) {
+  if (remaining_block == NULL) {
     printf("Allocation FAILED for %zu bytes\n", max_alloc_size);
   } else {
-    printf("Allocation succeeded: %zu bytes at %p\n", max_alloc_size, medium_block);
+    printf("Allocation succeeded: %zu bytes at %p\n", max_alloc_size, remaining_block);
     printf("Used after allocation: %zu bytes\n", fl.used);
   }
 
@@ -375,6 +350,7 @@ int main() {
     freelist_free(&fl, blocks[n]);
   }
   freelist_free(&fl, medium_block);
+  freelist_free(&fl, remaining_block);
 
   printf("[Test6] Final used bytes: %zu (should be 0)\n", fl.used);
 
