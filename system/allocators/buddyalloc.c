@@ -1,60 +1,95 @@
-#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-// Structure to represent a block of memory.
+#define MEMORY_POOL_SIZE (1024 * 1024) // 1MB memory pool
+#define MAX_LEVELS 21 // log2(1MB) = 20, safe upper limit for free list
+
+// Structure to represent a block of memory
 typedef struct Block {
-  size_t size;         // Size of the block (power of 2)
-  int free;            // Whether the block is free (1) or used (0)
-  struct Block* next;  // Pointer to the next block in the free list
+  size_t size;        // Size of the block (power of 2)
+  int free;           // Whether the block is free (1) or used (0)
+  struct Block *next; // Pointer to the next block in the free list
 } Block;
 
-// Global variables for the memory pool
-#define MEMORY_POOL_SIZE (1024 * 1024)      // 1MB memory pool
-static char memory_pool[MEMORY_POOL_SIZE];  // Memory pool for allocation
-static Block* free_list[32];                // Array of free lists (one for each power of 2)
+// Memory pool and free list
+static char memory_pool[MEMORY_POOL_SIZE];
+static Block *free_list[MAX_LEVELS];
 
-// Utility function to calculate the log base 2 of a number
+// Utility: integer log base 2
 int log2_size(size_t size) {
-  return (int)(log(size) / log(2));
+  int log = 0;
+  while (size >>= 1)
+    ++log;
+  return log;
 }
 
-// Initialize the memory pool and free list
+// Round up to next power of 2
+size_t next_power_of_two(size_t size) {
+  size_t power = 1;
+  while (power < size)
+    power <<= 1;
+  return power;
+}
+
+// Initialize buddy allocator
 void buddy_allocator_init() {
-  // Initialize all free lists to NULL
   memset(free_list, 0, sizeof(free_list));
 
-  // Create a single large block (initially the entire pool)
-  Block* initial_block = (Block*)memory_pool;
+  Block *initial_block = (Block *)memory_pool;
   initial_block->size = MEMORY_POOL_SIZE;
   initial_block->free = 1;
   initial_block->next = NULL;
 
-  // Add the initial block to the appropriate free list
   int index = log2_size(MEMORY_POOL_SIZE);
   free_list[index] = initial_block;
 }
 
-// Find a block of a given size
-Block* find_block(size_t size) {
-  int index = log2_size(size);
+// Add a block to the free list
+void add_to_free_list(Block *block) {
+  int index = log2_size(block->size);
+  block->free = 1;
+  block->next = free_list[index];
+  free_list[index] = block;
+}
 
-  // Find the smallest block that is big enough
-  for (int i = index; i < 32; i++) {
+// Remove and return the first block from a free list
+Block *remove_from_free_list(int index) {
+  if (free_list[index] == NULL)
+    return NULL;
+  Block *block = free_list[index];
+  free_list[index] = block->next;
+  block->next = NULL;
+  return block;
+}
+
+// Split a block into two halves
+void split_block(Block *block, int index) {
+  size_t new_size = block->size / 2;
+
+  Block *buddy = (Block *)((char *)block + new_size);
+  buddy->size = new_size;
+  buddy->free = 1;
+  buddy->next = NULL;
+
+  block->size = new_size;
+  block->free = 1;
+
+  // Add both halves to the smaller size free list
+  add_to_free_list(buddy);
+}
+
+// Find a suitable block for allocation
+Block *find_block(size_t alloc_size) {
+  int index = log2_size(alloc_size);
+
+  for (int i = index; i < MAX_LEVELS; i++) {
     if (free_list[i] != NULL) {
-      Block* block = free_list[i];
-      free_list[i] = block->next;  // Remove from the free list
+      Block *block = remove_from_free_list(i);
 
-      // Split the block if it's larger than required
-      while (block->size > size) {
-        Block* buddy = (Block*)((char*)block + block->size / 2);
-        buddy->size = block->size / 2;
-        buddy->free = 1;
-        buddy->next = free_list[log2_size(buddy->size)];
-        free_list[log2_size(buddy->size)] = buddy;
-
-        block->size /= 2;
+      // Split until block size matches required size
+      while (block->size > alloc_size) {
+        split_block(block, log2_size(block->size));
       }
 
       block->free = 0;
@@ -62,108 +97,121 @@ Block* find_block(size_t size) {
     }
   }
 
-  // No suitable block found
-  return NULL;
+  return NULL; // No suitable block found
 }
 
-// Allocate memory from the buddy allocator
-void* buddy_malloc(size_t size) {
-  if (size == 0) {
+// Calculate buddy address using XOR trick
+Block *get_buddy(Block *block) {
+  size_t offset = (char *)block - memory_pool;
+  size_t buddy_offset = offset ^ block->size;
+  if (buddy_offset >= MEMORY_POOL_SIZE)
     return NULL;
-  }
-
-  // Round up the size to the next power of 2
-  size_t alloc_size = 1;
-  while (alloc_size < size) {
-    alloc_size *= 2;
-  }
-
-  Block* block = find_block(alloc_size);
-  if (block == NULL) {
-    return NULL;  // No suitable block available
-  }
-  return (char*)block + sizeof(Block);
+  return (Block *)(memory_pool + buddy_offset);
 }
 
-// Coalesce adjacent free blocks
-void coalesce(Block* block) {
-  size_t size = block->size;
-  Block* buddy = (Block*)((char*)block + block->size);
+// Remove a block from its free list (safe)
+void remove_from_free_list_safe(Block *block) {
+  int index = log2_size(block->size);
+  Block **curr = &free_list[index];
 
-  // if (buddy->size == 0) return;
-
-  // Check if the buddy is free and adjacent
-  if (buddy->free && (buddy->size == size)) {
-    // Remove buddy from the free list
-    Block** prev = &free_list[log2_size(buddy->size)];
-    while (*prev != buddy) {
-      prev = &(*prev)->next;
+  while (*curr) {
+    if (*curr == block) {
+      *curr = block->next;
+      block->next = NULL;
+      return;
     }
-    *prev = buddy->next;
+    curr = &(*curr)->next;
+  }
+}
 
-    // Merge with buddy (half the size)
+// Recursively coalesce free buddies
+void coalesce(Block *block) {
+  while (block->size < MEMORY_POOL_SIZE) {
+    Block *buddy = get_buddy(block);
+    if (!buddy || !buddy->free || buddy->size != block->size) {
+      break;
+    }
+
+    // Remove both from current free list
+    remove_from_free_list_safe(buddy);
+    remove_from_free_list_safe(block);
+
+    // Merge
     if (block > buddy) {
-      Block* temp = block;
+      Block *temp = block;
       block = buddy;
       buddy = temp;
     }
 
     block->size *= 2;
+    block->free = 1;
     block->next = NULL;
-
-    // Add the merged block back to the free list
-    free_list[log2_size(block->size)] = block;
   }
+
+  add_to_free_list(block);
 }
 
-// Free a previously allocated block
-void buddy_free(void* ptr) {
-  if (ptr == NULL) {
-    return;
-  }
+// Allocate memory
+void *buddy_malloc(size_t size) {
+  if (size == 0 || size > MEMORY_POOL_SIZE - sizeof(Block))
+    return NULL;
 
-  // Get the block header from the given pointer
-  Block* block = (Block*)((char*)ptr - sizeof(Block));
+  size_t total_size = size + sizeof(Block);
+  size_t alloc_size = next_power_of_two(total_size);
+
+  Block *block = find_block(alloc_size);
+  if (!block)
+    return NULL;
+
+  return (char *)block + sizeof(Block);
+}
+
+// Free memory
+void buddy_free(void *ptr) {
+  if (!ptr)
+    return;
+
+  Block *block = (Block *)((char *)ptr - sizeof(Block));
   block->free = 1;
 
-  // Coalesce the block with its buddy if possible
   coalesce(block);
 }
 
-// Print memory pool information (for debugging)
+// Debug print
 void print_free_list() {
-  for (int i = 0; i < 32; i++) {
-    if (free_list[i] != NULL) {
-      printf("Free list[%d]: ", 1 << i);
-      Block* current = free_list[i];
-      while (current != NULL) {
-        printf("Block at %p (size: %zu) -> ", current, current->size);
-        current = current->next;
+  printf("Free list status:\n");
+  for (int i = 0; i < MAX_LEVELS; i++) {
+    if (free_list[i]) {
+      printf("  Size %zu: ", (size_t)1 << i);
+      Block *curr = free_list[i];
+      while (curr) {
+        printf("[%p size=%zu] -> ", curr, curr->size);
+        curr = curr->next;
       }
       printf("NULL\n");
     }
   }
 }
 
-// Example usage of the buddy allocator
+// Example usage
 int main() {
   buddy_allocator_init();
 
   printf("Before allocation:\n");
   print_free_list();
 
-  void* block1 = buddy_malloc(100);
-  void* block2 = buddy_malloc(200);
-  void* block3 = buddy_malloc(50);
+  void *a = buddy_malloc(100);
+  void *b = buddy_malloc(200);
+  void *c = buddy_malloc(50);
 
-  printf("\nAfter allocations:\n");
+  printf("\nAfter allocation:\n");
   print_free_list();
 
-  buddy_free(block1);
-  buddy_free(block2);
-  buddy_free(block3);
+  buddy_free(a);
+  buddy_free(b);
+  buddy_free(c);
 
-  printf("\nAfter freeing blocks:\n");
+  printf("\nAfter free:\n");
   print_free_list();
 
   return 0;
