@@ -188,7 +188,6 @@ void *freelist_alloc(FreeList *fl, size_t size, size_t alignment) {
     // insert new_node in its place
     FreeList_Node *new_node = (FreeList_Node *)((void *)aligned_ptr);
     new_node->block_size = remaining;
-    new_node->next = node->next;
     freelist_node_insert(&fl->head, node, new_node);
 
     printf("Remaining block %p of size %zu\n", new_node, remaining);
