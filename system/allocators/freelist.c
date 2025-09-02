@@ -1,3 +1,9 @@
+/*
+ * This freelist allocator implements both find first and find best policy.
+ * The default is find best, To enable find first pass -DFIRST_PLACEMENT during compilation step
+ * clang freelist.c -Wall -DFIRST_PLACEMENT -fsanitize=alignment -fsanitize=undefined -o freelist
+ *
+ */
 #include <assert.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -73,6 +79,16 @@ void freelist_node_remove(FreeList_Node **phead, FreeList_Node *prev_node,
   } else {
     prev_node->next = del_node->next;
   }
+}
+
+void print_freelist(FreeList *fl) {
+  FreeList_Node *node = fl->head;
+  printf("\n");
+  while (node != NULL) {
+    printf("FreeList_Node %p --> ", node);
+    node = node->next;
+  }
+  printf("\n");
 }
 
 // Checks if a value is a power of two
@@ -178,21 +194,26 @@ void *freelist_alloc(FreeList *fl, size_t size, size_t alignment) {
   printf("[ALLOC] Request size=%zu, alignment=%zu\n", size, alignment);
   printf("[ALLOC] Using free block at %p, size=%zu\n", (void *)node, node->block_size);
 
+  // space gained through alignment
+  size_t extra_space = 0;
+
   if (remaining >= sizeof(struct FreeList_Node)) {
     // make sure it's aligned
     void *ptr = (char *)node + required_space;
     uintptr_t curr_ptr = (uintptr_t)ptr;
     uintptr_t aligned_ptr = (curr_ptr + alignment - 1) & ~(alignment - 1);
+    extra_space = aligned_ptr - curr_ptr;
 
     // Instead of removing node then inserting, just adjust current node and
     // insert new_node in its place
     FreeList_Node *new_node = (FreeList_Node *)((void *)aligned_ptr);
-    new_node->block_size = remaining;
+    new_node->block_size = remaining - extra_space;
     freelist_node_insert(&fl->head, node, new_node);
 
-    printf("Remaining block %p of size %zu\n", new_node, remaining);
+    printf("Remaining block %p of size %zu\n", new_node, remaining - extra_space);
   }
 
+  required_space += extra_space;
   // Update the current node size to required_space, effectively splitting it
   node->block_size = required_space;
   // Remove the node from free list as it is fully allocated
@@ -222,7 +243,7 @@ void freelist_coalescence(FreeList *fl, FreeList_Node *prev_node, FreeList_Node 
   // Coalesce with previous
   if (prev_node != NULL &&
       (void *)((char *)prev_node + prev_node->block_size) == (void *)free_node) {
-    printf("Coalescing free block [%p] with previous block [%p ...\n", free_node, prev_node);
+    printf("Coalescing free block [%p] with previous block [%p] ...\n", free_node, prev_node);
     prev_node->block_size += free_node->block_size;
     freelist_node_remove(&fl->head, prev_node, free_node);
   }
@@ -251,18 +272,24 @@ void *freelist_free(FreeList *fl, void *ptr) {
   freelist_node_insert(&fl->head, prev_node, free_node);
   fl->used -= free_node->block_size;
 
+  printf("\nBefore coalesce  --> ");
+  print_freelist(fl);
   // Merge neighbors if adjacent
   freelist_coalescence(fl, prev_node, free_node);
+
+  printf("\nAfter coalesce  --> ");
+  print_freelist(fl);
 
   return fl;
 }
 
+#if defined(FIRST_PLACEMENT)
 int main() {
-  unsigned char buf[512];  // Increased buffer size to avoid early OOM
-  FreeList fl = {0};       // Allocator instance
+  unsigned char buf[1024];  // Increased buffer size to avoid early OOM
+  FreeList fl = {0};        // Allocator instance
 
   free_list_init(&fl, buf, sizeof(buf));
-  fl.policy = Placement_Policy_Find_First;  // or Placement_Policy_Find_Best
+  fl.policy = Placement_Policy_Find_Best;  // or Placement_Policy_Find_Best
 
   // Allocate int and float as before
   int *i = (int *)freelist_alloc(&fl, sizeof(int), 8);
@@ -351,7 +378,124 @@ int main() {
   freelist_free(&fl, medium_block);
   freelist_free(&fl, remaining_block);
 
+  printf("[Test7] Final used bytes: %zu (should be 0)\n", fl.used);
+
+  return 0;
+}
+
+#else
+
+int main() {
+  // 512-byte buffer
+  unsigned char buf[1024];
+  FreeList fl = {0};
+
+  // Initialize the free list and set the policy to 'Find_Best'
+  free_list_init(&fl, buf, sizeof(buf));
+  fl.policy = Placement_Policy_Find_Best;
+
+  // Allocate three blocks of varying sizes
+  // This will break the single 512-byte block into smaller free blocks
+  void *a = freelist_alloc(&fl, 100, 8);
+  void *b = freelist_alloc(&fl, 20, 8);
+  void *c = freelist_alloc(&fl, 100, 8);
+
+  // Free the first and third blocks.
+  // This creates two free blocks: a larger one and a smaller one.
+  freelist_free(&fl, a);
+  freelist_free(&fl, c);
+
+  printf("After freeing 'a' and 'c', the free list should have two blocks.\n");
+  printf("Block 1 (from 'a') is around 100 bytes + overhead.\n");
+  printf("Block 2 (from 'c') is around 100 bytes + overhead.\n");
+
+  // The free blocks are not necessarily in a specific order due to the `freelist_free` function
+  // but their size is a known quantity for this test.
+  // We have a 100-byte block and another 100-byte block.
+  // Let's create an additional small free block in the middle.
+  //
+  // Current state: Free space `a` (approx 100 bytes), Used space `b` (20 bytes), Free space `c`
+  // (approx 100 bytes). Let's free 'b' to create a smaller free block between the two 100-byte
+  // blocks.
+  freelist_free(&fl, b);
+
+  // The free list now has three blocks (due to the `coalescence` function, `a` and `b` may be
+  // merged as will `b` and `c` if they are contiguous). Let's create a scenario that is less likely
+  // to coalesce.
+
+  // Reset and try a different allocation pattern to create specific free blocks.
+  freelist_free_all(&fl);
+
+  // Create three free blocks of specific sizes by allocating and freeing.
+  // Allocate three large blocks
+  void *p1 = freelist_alloc(&fl, 100, 8);
+  void *p2 = freelist_alloc(&fl, 50, 8);
+  void *p3 = freelist_alloc(&fl, 150, 8);
+
+  // Free them in a way that leaves two distinct-sized free blocks
+  freelist_free(&fl, p1);  // Leaves a free block of ~112 bytes
+  freelist_free(&fl, p3);  // Leaves a free block of ~160 bytes
+
+  // The free list now contains a ~112-byte block and a ~160-byte block.
+  // 'p2' (50 bytes) remains allocated in the middle.
+
+  printf("\nTest Case for Best-Fit Policy:\n");
+  printf(
+      "Free blocks available: ~112 bytes and ~160 bytes (plus a 50-byte used block in between).\n");
+
+  // Allocate a block of 64 bytes.
+  // With First-Fit, it would use the first free block (~112 bytes).
+  // With Best-Fit, it should use the first free block as it's the only one that can fit.
+  //
+  // Let's adjust our test case to make the two free blocks fit.
+  freelist_free_all(&fl);
+
+  // Setup a scenario with a 'perfect' fit
+  void *alloc1 = freelist_alloc(&fl, 50, 8);  // Used block
+  void *alloc2 = freelist_alloc(&fl, 70, 8);  // The 'first' free block candidate
+  void *alloc3 = freelist_alloc(&fl, 60, 8);  // Used block
+  void *alloc4 = freelist_alloc(&fl, 30, 8);  // The 'best' free block candidate
+
+  freelist_free(&fl, alloc2);  // Free block 1: ~70 bytes
+  freelist_free(&fl, alloc4);  // Free block 2: ~30 bytes
+
+  printf("\nCreated two free blocks: a large one (~70 bytes) and a small one (~30 bytes).\n");
+  printf("Now attempting to allocate a 25-byte block.\n");
+
+  // Request a 25-byte block.
+  // First-Fit would select the ~70-byte block.
+  // Best-Fit should select the ~30-byte block, as it has less fragmentation (smaller 'diff').
+  void *best_fit_alloc = freelist_alloc(&fl, 25, 8);
+
+  if (best_fit_alloc) {
+    printf("\nSuccessfully allocated 25-byte block at %p.\n", best_fit_alloc);
+  } else {
+    printf("\nFailed to allocate 25-byte block.\n");
+  }
+
+  // Now, let's verify which block was used by looking at the remaining free list.
+  // This is difficult to do without a debug function, but the success or failure
+  // of subsequent allocations can give clues.
+
+  printf("\nState after best-fit allocation:\n");
+  printf("Used: %zu bytes\n", fl.used);
+
+  // Attempt to allocate a block that would only fit in the remaining large block.
+  void *large_alloc = freelist_alloc(&fl, 40, 8);
+  if (large_alloc) {
+    printf("Successfully allocated a 40-byte block.\n");
+  } else {
+    printf("Failed to allocate a 40-byte block.\n");
+  }
+
+  // Clean up
+  freelist_free(&fl, alloc1);
+  freelist_free(&fl, alloc3);
+  freelist_free(&fl, best_fit_alloc);
+  freelist_free(&fl, large_alloc);
+
   printf("[Test6] Final used bytes: %zu (should be 0)\n", fl.used);
 
   return 0;
 }
+#endif
