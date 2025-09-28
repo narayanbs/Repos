@@ -5,7 +5,7 @@
 #include <stdio.h>
 
 int main(void) {
-  atomic_int atomicvar = ATOMIC_VAR_INIT(100);
+  atomic_int atomicvar = 100;
   int expected = 100;
   int desired = 200;
 
