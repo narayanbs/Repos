@@ -17,7 +17,6 @@
 int main() {
   int sock;
   struct sockaddr_in addr;
-  struct ip_mreq mreq;
   int ttl = TTL_VALUE;
 
   if ((sock = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
