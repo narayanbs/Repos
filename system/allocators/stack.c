@@ -1,74 +1,95 @@
+/*
+ * stack allocator is similar to arena, in that we allocate a frame of the required size
+ * and adjusting the appropriate offsets.
+ * We can also unwind the stack and remove the current frame and make the previous frame active.
+ * so we need to keep the offsets of the previous frame in memory when we create a new frame. For
+ * this we use the header. The header stores the previous frame offset and the padding from the
+ * current frame to the previous frame.
+ * So when we free a frame, we just need to adjust the offsets to unwind the current one and make
+ * the previous one active.
+ *
+ */
 #include <assert.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 
-#define ALIGNMENT (sizeof(void *))
+#define DEFAULT_ALIGNMENT (sizeof(void *))
 
 typedef struct Stack Stack;
 
 struct Stack {
   unsigned char *buf;
-  size_t buflen;
-  size_t prev_frame_offset;
-  size_t curr_frame_offset;
+  size_t length;
+  size_t frame_start_offset;
+  size_t frame_end_offset;
 };
 
 typedef struct StackHeader StackHeader;
 
 struct StackHeader {
-  size_t padding;
-  size_t prev_offset;
+  size_t prev_frame_start_offset;
+  size_t prev_frame_padding;
 };
 
-void stack_init(Stack *s, void *buf, size_t length) {
+void stack_init(Stack *s, void *buf, size_t buf_length) {
   s->buf = buf;
-  s->buflen = length;
-  s->prev_frame_offset = 0;
-  s->curr_frame_offset = 0;
+  s->length = buf_length;
+  s->frame_start_offset = 0;
+  s->frame_end_offset = 0;
 }
 
-uintptr_t calc_padding(uintptr_t ptr, size_t align, size_t header_size) {
-  uintptr_t aligned_ptr = (ptr + align - 1) & ~(align - 1);
-  uintptr_t padding = aligned_ptr - ptr;
-  if (padding < header_size) {
-    uintptr_t nested_header = header_size - padding;
-    padding += align * ((nested_header + align - 1) / align);
-  }
-  return padding;
+uintptr_t align_alloc(uintptr_t ptr, uintptr_t align) {
+  return (ptr + align - 1) & ~(align - 1);
 }
 
 void *stack_alloc(Stack *s, size_t size) {
-  uintptr_t curr_ptr = (uintptr_t)s->buf + s->curr_frame_offset;
-  size_t padding = calc_padding(curr_ptr, ALIGNMENT, sizeof(StackHeader));
-  uintptr_t aligned_ptr = curr_ptr + padding;
-  size_t offset = aligned_ptr - (uintptr_t)s->buf;
-  if (offset + size <= s->buflen) {
-    void *ptr = (void *)curr_ptr + padding;
-    StackHeader *sh = (StackHeader *)((char *)ptr - sizeof(StackHeader));
-    sh->padding = padding;
-    sh->prev_offset = s->prev_frame_offset;
-    s->prev_frame_offset = s->curr_frame_offset;
-    s->curr_frame_offset = offset + size;
-    return ptr;
+  // the stack allocation size includes the header size
+  // check if the size is within limits
+  size_t newframesize = sizeof(StackHeader) + size;
+  if (s->frame_end_offset + newframesize > s->length) {
+    return NULL;
   }
-  return NULL;
+  // Address of the end of the current frame
+  uintptr_t curr_ptr = (uintptr_t)s->buf + (uintptr_t)s->frame_end_offset;
+  // Aligned address of the end of the current frame
+  uintptr_t aligned_ptr = align_alloc(curr_ptr, DEFAULT_ALIGNMENT);
+
+  // The first part includes the StackHeader
+  StackHeader *sh = (void *)aligned_ptr;
+
+  // Store the start offset of existing frame in StackHeader
+  sh->prev_frame_start_offset = s->frame_start_offset;
+  // Store the padding from the new frame to existing frame in StackHeader
+  sh->prev_frame_padding = (uintptr_t)aligned_ptr - s->frame_end_offset - (uintptr_t)s->buf;
+
+  // Update the offsets of the new frame
+  s->frame_start_offset = (uintptr_t)aligned_ptr - (uintptr_t)s->buf;
+  s->frame_end_offset = s->frame_start_offset + newframesize;
+  printf("allocating: start offset %zu and end offset %zu\n", s->frame_start_offset,
+         s->frame_end_offset);
+
+  // Now return the pointer to the payload (sans the StackHeader)
+  return (void *)aligned_ptr + sizeof(StackHeader);
 }
 
-void stack_free(Stack *s, void *ptr) {
-  StackHeader *sh = (StackHeader *)((char *)ptr - sizeof(StackHeader));
-  void *prev_ptr = (char *)ptr - sh->padding;
-  uintptr_t prev_offset = (uintptr_t)prev_ptr - (uintptr_t)s->buf;
-  if (prev_offset != s->prev_frame_offset) {
-    assert(0 && "Invalid stack frame to unload");
-    return;
-  }
-  s->curr_frame_offset = s->prev_frame_offset;
-  s->prev_frame_offset = sh->prev_offset;
+void *stack_free(Stack *s, void *ptr) {
+  // Obtain the StackHeader to get the start offset of the previous frame
+  // and the paddding between the current and previous frame
+  StackHeader *sh = (void *)ptr - sizeof(StackHeader);
+
+  // Update the offsets of the stack to the previous frame
+  s->frame_end_offset = (uintptr_t)sh - sh->prev_frame_padding - (uintptr_t)s->buf;
+  s->frame_start_offset = sh->prev_frame_start_offset;
+  printf("freeing : start offset %zu and end offset %zu\n", s->frame_start_offset,
+         s->frame_end_offset);
+
+  // Return the pointer to the payload
+  return (void *)&s->buf[s->frame_start_offset] + sizeof(StackHeader);
 }
 
 int main(void) {
-  char buf[256];
+  char buf[512];
   Stack s = {0};
   stack_init(&s, buf, sizeof(buf));
 
@@ -125,7 +146,7 @@ int main(void) {
   printf("Test 9: text = %s\n", text);
 
   // ✅ Test 10: Allocate nearly full buffer
-  void *big_block = stack_alloc(&s, 240);  // Too big for remaining space
+  void *big_block = stack_alloc(&s, 500);  // Too big for remaining space
   assert(big_block == NULL);               // Should fail
 
   printf("All tests passed.\n");

@@ -1,3 +1,22 @@
+/*
+ * Arena allocator
+ *
+ * buffer of memory aligned to the given boundary
+ * start_frame_offset and end_frame_offset hold the start and end distances of the current frame
+ * from the beginning of the arena block
+ *
+ * when a new request for allocation is made, we make sure that a new frame that is properly aligned
+ * is created. We adjust the offsets to the newly created frame distances.
+ *
+ * When a request for resize is made, we check for the following conditions
+ * 1. If the pointer does not point to an existing frame we create a new frame with the given new
+ * size
+ * 2. If the pointer points to an existing frame
+ *  a) then if it is the current frame, we just need to adjust the offset distances to the new size
+ *  b) else we create a new frame with the new size and  copy the contents of the frame we need to
+ * resize
+ *
+ */
 #include <assert.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -9,6 +28,9 @@ bool is_power_of_two(uintptr_t x) {
   return (x & (x - 1)) == 0;
 }
 
+/*
+ * Obtain the next aligned address
+ */
 uintptr_t align_forward(uintptr_t ptr, size_t align) {
   uintptr_t p, a, modulo;
   assert(is_power_of_two(align));
@@ -19,6 +41,7 @@ uintptr_t align_forward(uintptr_t ptr, size_t align) {
     p += a - modulo;
   }
   return p;
+  // The above can be replaced by the following bitwise operation
   // return (ptr + align - 1) & ~(align - 1);
 }
 
@@ -31,26 +54,26 @@ typedef struct Arena Arena;
 struct Arena {
   unsigned char *buf;
   size_t buf_len;
-  size_t prev_offset;
-  size_t curr_offset;
+  size_t start_frame_offset;
+  size_t end_frame_offset;
 };
 
 void arena_init(Arena *a, void *backing_buffer, size_t backing_buffer_length) {
   a->buf = (unsigned char *)backing_buffer;
   a->buf_len = backing_buffer_length;
-  a->curr_offset = 0;
-  a->prev_offset = 0;
+  a->start_frame_offset = 0;
+  a->end_frame_offset = 0;
 }
 
 void *arena_alloc_align(Arena *a, size_t size, size_t align) {
-  uintptr_t curr_ptr = (uintptr_t)a->buf + (uintptr_t)a->curr_offset;
-  uintptr_t offset = align_forward(curr_ptr, align);
-  offset -= (uintptr_t)a->buf;
+  uintptr_t curr_ptr = (uintptr_t)a->buf + (uintptr_t)a->end_frame_offset;
+  uintptr_t aligned_ptr = align_forward(curr_ptr, align);
+  uintptr_t offset = aligned_ptr - (uintptr_t)a->buf;
 
   if (offset + size <= a->buf_len) {
     void *ptr = &a->buf[offset];
-    a->prev_offset = offset;
-    a->curr_offset = offset + size;
+    a->start_frame_offset = offset;
+    a->end_frame_offset = offset + size;
 
     memset(ptr, 0, size);
     return ptr;
@@ -66,27 +89,36 @@ void arena_free(Arena *a, void *ptr) {
   // Do nothing
 }
 
-void *arena_resize_align(Arena *a, void *old_memory, size_t old_size, size_t new_size, size_t align) {
+void *arena_resize_align(Arena *a, void *old_memory, size_t old_size, size_t new_size,
+                         size_t align) {
   unsigned char *old_mem = (unsigned char *)old_memory;
 
   assert(is_power_of_two(align));
 
+  // return a new arena frame in case the pointer is NULL or size is zero
   if (old_mem == NULL || old_size == 0) {
     return arena_alloc_align(a, new_size, align);
-  } else if (a->buf <= old_mem && old_mem < a->buf + a->buf_len) {
-    if (a->buf + a->prev_offset == old_mem) {
+  }
+  // else check if the pointer is within limits of the arena
+  else if (a->buf <= old_mem && old_mem < a->buf + a->buf_len) {
+    // if the pointer points to the latest frame then
+    // resize it
+    if (a->buf + a->start_frame_offset == old_mem) {
       if (new_size > old_size) {
-        memset(&a->buf[a->curr_offset], 0, new_size - old_size);
+        memset(&a->buf[a->end_frame_offset], 0, new_size - old_size);
       }
-      a->curr_offset = a->prev_offset + new_size;
+      a->end_frame_offset = a->start_frame_offset + new_size;
       return old_memory;
     } else {
+      // else if pointer points to another frame then
+      // create a new frame and copy the contents to it.
       void *new_memory = arena_alloc_align(a, new_size, align);
       size_t copy_size = old_size < new_size ? old_size : new_size;
       memmove(new_memory, old_memory, copy_size);
       return new_memory;
     }
   } else {
+    // Cannot resize the arena
     assert(0 && "Memory is out of bounds of the buffer in this arena");
     return NULL;
   }
@@ -97,8 +129,8 @@ void *arena_resize(Arena *a, void *old_memory, size_t old_size, size_t new_size)
 }
 
 void arena_free_all(Arena *a) {
-  a->prev_offset = 0;
-  a->curr_offset = 0;
+  a->start_frame_offset = 0;
+  a->end_frame_offset = 0;
 }
 
 // Extra Features
@@ -113,14 +145,14 @@ struct Temp_Arena_Memory {
 Temp_Arena_Memory temp_arena_memory_begin(Arena *a) {
   Temp_Arena_Memory temp;
   temp.arena = a;
-  temp.prev_offset = a->prev_offset;
-  temp.curr_offset = a->curr_offset;
+  temp.prev_offset = a->start_frame_offset;
+  temp.curr_offset = a->end_frame_offset;
   return temp;
 }
 
 void temp_arena_memory_end(Temp_Arena_Memory temp) {
-  temp.arena->prev_offset = temp.prev_offset;
-  temp.arena->curr_offset = temp.curr_offset;
+  temp.arena->start_frame_offset = temp.prev_offset;
+  temp.arena->end_frame_offset = temp.curr_offset;
 }
 
 /*
