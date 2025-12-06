@@ -25,13 +25,23 @@ void sigchld_handler(int s) {
   // waitpid() might overwrite errno, so we save and restore it:
   int saved_errno = errno;
 
-  // You wouldn't be in the signal handler if you didn't have a child to handle. The loop is because
-  // while you are in the handler itself a 2nd or 3rd child could have changed or terminated sending
-  // SIGCHLDs that would not be queued. Thus the loop actually prevents you from missing those
-  // possible dead children. It will return 0 or error out with a -1 (ECHILD) when there are no more
-  // children to be reaped at the moment.
-  while (waitpid(-1, NULL, WNOHANG) > 0)
-    ;
+  //   This is the core logic.
+  //
+  // waitpid(-1, ...) means:
+  // wait for any child process
+  //
+  // WNOHANG means:
+  // don’t block — return immediately if no children have exited
+  //
+  // The loop reaps all children that have exited.
+  // The loop ends when waitpid() returns:
+  //
+  // 0 → no more exited children
+  //
+  // -1 + errno == ECHILD → no children at all
+  //
+  // This prevents zombie processes.
+  while (waitpid(-1, NULL, WNOHANG) > 0);
 
   errno = saved_errno;
 }
