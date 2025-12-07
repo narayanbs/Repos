@@ -33,7 +33,17 @@
 int main() {
   int sock;
   struct sockaddr_in addr, src_addr;
+
+  // struct ip_mreq is a structure used with IPv4 multicast socket operations—specifically with the
+  // setsockopt() options: IP_ADD_MEMBERSHIP and IP_DROP_MEMBERSHIP
+  // It tells the kernel which multicast group a socket wants to join (or leave) and which local
+  // interface to use.
+  // struct ip_mreq {
+  //     struct in_addr imr_multiaddr;  // Multicast group address
+  //     struct in_addr imr_interface;  // Local interface address
+  // };
   struct ip_mreq mreq;
+
   char buffer[BUFFER_SIZE];
   socklen_t addr_len = sizeof(struct sockaddr_in);
 

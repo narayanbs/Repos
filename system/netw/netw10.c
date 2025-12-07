@@ -35,7 +35,6 @@
 int main() {
   int sock;
   struct sockaddr_in addr;
-  struct ip_mreq mreq;
   int ttl = TTL_VALUE;
 
   /**
