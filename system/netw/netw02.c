@@ -82,6 +82,15 @@ int main(void) {
       continue;
     }
 
+    // SOL_SOCKET = options at the socket API level (not protocol-specific).
+    // Other possible levels include:
+    // IPPROTO_IP (IP-level options)
+    // IPPROTO_TCP (TCP-level options)
+    // IPPROTO_IPV6 (IPv6 options)
+    // SO_REUSEADDR - Allow this socket to bind to a port even if another socket is in TIME_WAIT or
+    // recently closed
+    // Servers commonly use it so they can restart quickly without waiting 1–4 minutes for TIME_WAIT
+    // to expire.
     if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) == -1) {
       perror("setsockopt");
       exit(1);
