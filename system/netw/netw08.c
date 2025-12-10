@@ -43,9 +43,14 @@ void add_to_fds(int *fds[], int newfd, int *fd_count, int *fd_size) {
 
 // Remove an index from the set
 void del_from_fds(int *fds[], int fd, int *fd_count) {
-  // Copy the one from the end over this one
-  (*fds)[fd] = (*fds)[*fd_count - 1];
-  (*fd_count)--;
+  for (int i = 0; i < *fd_count; i++) {
+    if ((*fds)[i] == fd) {
+      // move last element here
+      (*fds)[i] = (*fds)[*fd_count - 1];
+      (*fd_count)--;
+      return;
+    }
+  }
 }
 
 int main(void) {
