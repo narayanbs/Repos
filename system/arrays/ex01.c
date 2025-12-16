@@ -4,6 +4,8 @@
  * int arr[i][j]
  * &a[i][j] = base_address + (i * COLS + j) * sizeof(int)
  *
+ * address = base + index * scale
+ *
  */
 #include <stdio.h>
 #include <stdlib.h>
