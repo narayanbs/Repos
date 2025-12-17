@@ -3,10 +3,11 @@
  * We start out by allocating a stack for the child process and then checking for the CLONE_VM
  * option. We then create a buffer of 100 bytes in the parent process and copy a string into it.
  *
- * Now if we execute the clone system call without CLONE_VM, the parent process' virtual memory
- * is cloned into the child process. The child process can access the message passed by the
+ * Now if we execute the clone system call without CLONE_VM, the child gets its own virtual memory.
+ * Memory is duplicated using copy-on-write. The child process can access the message passed by the
  * parent process in buffer. But anything written into the buffer isn't accesible to the parent
  * process.
+ *
  * If we execute the clone system call with CLONE_VM flag, the child process shares the
  * parent's process memory. Now if we write into the buffer, it will be available to the parent
  * process
