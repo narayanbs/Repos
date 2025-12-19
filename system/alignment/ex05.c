@@ -26,7 +26,7 @@ int main(void) {
     free(ptr);
     exit(0);
   } else {
-    ptr1 = ptr;
+    ptr = ptr1;
   }
   return 0;
 }

@@ -8,6 +8,7 @@
 int main(void) {
   // Print the alignment requirements of various types
   printf("Alignment of char: %zu bytes\n", alignof(char));
+  printf("Alignment of short: %zu bytes\n", alignof(short));
   printf("Alignment of int: %zu bytes\n", alignof(int));
   printf("Alignment of double: %zu bytes\n", alignof(double));
   printf("Alignment of long: %zu bytes\n", alignof(long));
