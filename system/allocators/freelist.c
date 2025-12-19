@@ -413,7 +413,7 @@ int main(void) {
 #else
 
 int main(void) {
-  // 512-byte buffer
+  // 1024-byte buffer
   unsigned char buf[1024];
   FreeList fl = {0};
 
