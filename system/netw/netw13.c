@@ -1,33 +1,50 @@
 /*
-This program has to be run in root. and pass an IP instead of a hostname
-sudo ./netw13 142.98.23.3 
-Make sure you comment line 364 setsockopt( ... SO_DONTROUTE) 
+ * Program
+ * Simple ICMP Ping implementation using raw sockets (Linux)
+ *
+ * This program has to be run in root. and pass an IP instead of a hostname
+ *
+ * - Uses IPPROTO_ICMP raw socket (root required)
+ * - Sends ICMP Echo Requests
+ * - Receives ICMP Echo Replies
+ * - Measures RTT using embedded timestamps
+ *
+ * Linux-correct:
+ *   - struct iphdr     (not struct ip)
+ *   - struct icmphdr   (not struct icmp)
+ *
+ * Make sure you comment line 364 setsockopt( ... SO_DONTROUTE)
+ * 
+ * This program creates a socket interface with protocol field set to "icmp". Now,  frame an ICMP
+ * header with packet type as "ICMP echo". This icmp header is attached to L3 packet in kernel network
+ * stack and now, the ICMP echo (ping) packets is sent to the destination host ip. On receiving ICMP
+ * echo packet, the destination host (if reachable) would send "ICMP reply" packet back to the source
+ * host. The below program on receiving ICMP reply would parse the ICMP header and validate whether the
+ * ICMP header is a valid "ICMP reply" header. The program runs in infinite while loop and this process
+ * goes on forever, until "Ctrl + c" is pressed.
+ * 
+ * On pressing "ctrl + C", the program will invoke SIGINT signal handler code and print the statistics
+ * of the ping (i.e. no. of ICMP echo packets transmitted and the no. of ICMP reply packets received)
+ * and the program exits following this.
+ * 
+ * Please refer the following rfc link pertaining to "Internet Control Message Protocol"
+ * https://tools.ietf.org/html/rfc792
+ * 
+ *
+ * Compile:
+ *   gcc -std=c11 -Wall -Wextra -pedantic netw13.c -o netw13
+ *
+ * Run:
+ *   sudo ./netw13 <IPv4-address>
+ *   sudo ./netw13 142.98.23.3
+ */
 
-This program creates a socket interface with protocol field set to "icmp". Now,  frame an ICMP
-header with packet type as "ICMP echo". This icmp header is attached to L3 packet in kernel network
-stack and now, the ICMP echo (ping) packets is sent to the destination host ip. On receiving ICMP
-echo packet, the destination host (if reachable) would send "ICMP reply" packet back to the source
-host. The below program on receiving ICMP reply would parse the ICMP header and validate whether the
-ICMP header is a valid "ICMP reply" header. The program runs in infinite while loop and this process
-goes on forever, until "Ctrl + c" is pressed.
-
-On pressing "ctrl + C", the program will invoke SIGINT signal handler code and print the statistics
-of the ping (i.e. no. of ICMP echo packets transmitted and the no. of ICMP reply packets received)
-and the program exits following this.
-
-Please refer the following rfc link pertaining to "Internet Control Message Protocol"
-https://tools.ietf.org/html/rfc792
-
-Program
-*/
+#define _POSIX_C_SOURCE 200809L
 
 #include <arpa/inet.h>
 #include <errno.h>
-#include <netdb.h>
-#include <netinet/in.h>
-#include <netinet/ip.h>
-#include <netinet/ip_icmp.h>
-#include <setjmp.h>
+#include <netinet/ip.h>       // struct iphdr
+#include <netinet/ip_icmp.h>  // struct icmphdr
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -37,141 +54,39 @@ Program
 #include <sys/types.h>
 #include <unistd.h>
 
+/* Maximum packet buffer size */
 #define PACKET_SIZE 4096
+
+/* Payload size carried in ICMP echo request */
 #define ICMP_DATA_LEN 56
 
-/* Store sent and received packet in the below arrays */
-char sendpacket[PACKET_SIZE];  // store the send package
-char recvpacket[PACKET_SIZE];  // store the recevice package
+/* Buffers for sending and receiving packets */
+static char sendpacket[PACKET_SIZE];
+static char recvpacket[PACKET_SIZE];
 
-int sockfd;
-int nsend = 0, nreceived = 0;
+/* Raw socket descriptor */
+static int sockfd = -1;
 
-/* Destination and local host address info */
-struct sockaddr_in dest_addr;  // store the destination address info
-struct sockaddr_in from;       // store the localhost address info
+/* Packet counters (atomic for signal safety) */
+static volatile sig_atomic_t nsend = 0;
+static volatile sig_atomic_t nreceived = 0;
 
-struct timeval tm_recv;  // store the time info when a package received
-pid_t pid;               // store the process id of main program
-char *hostname = NULL;   // store the host name (from the command line)
+/* Destination and source address structures */
+static struct sockaddr_in dest_addr;
+static struct sockaddr_in from;
 
-/******************************************************************************
- * Function Declarations
- ******************************************************************************/
-void signal_handler(int signo);
-unsigned short cal_chksum(unsigned short *addr, int len);
-int frame_icmp_echo_header(int pack_no);
-int unpack_icmp_reply(char *buf, int len);
-void send_icmp_echo_packet(void);
-void recv_icmp_reply_packet(void);
-void time_difference_in_secs(struct timeval *time_recv, struct timeval *time_send);
+/* Time when a reply is received */
+static struct timeval tm_recv;
 
-/*******************************************************************
- * Function: signal_handler
- *
- * Description: SIGINT signal handler. When 'ctrl + c' is pressed on
- *              keyboard, signal handler prints the summary of ping
- *              packets transmitted and received.
- *******************************************************************/
-void signal_handler(int signo) {
-  putchar('\n');
-  fflush(stdout);
-  printf("\n-----------%s PING statistics-----------\n", hostname);
-  if (nsend > 0) {
-    printf("%d packets transmitted, %d received , %2.0f%%  lost\n", nsend, nreceived,
-           (float)(nsend - nreceived) / nsend * 100);
-  } else {
-    printf("have problem in send packets!\n");
-  }
+/* Process ID used as ICMP identifier */
+static pid_t pid;
 
-  if (sockfd) {
-    close(sockfd);
-  }
-  exit(0);
-}
+/* Destination IP string */
+static const char *hostname;
 
-/*******************************************************************
- * Function: unpack_icmp_reply
- *
- * Description: Extract icmp header from icmp reply packet
- *
- * Arguments:
- *      buf : Pointer to received ICMP reply packet packet array.
- *      len : Length of the ICMP reply packet received.
- *******************************************************************/
-int unpack_icmp_reply(char *buf, int len) {
-  int iphdrlen;
-  struct ip *ip;
-  struct icmp *icmp;
-  struct timeval *tm_send;
-  double rtt;
-
-  ip = (struct ip *)buf;
-
-  /* Seek the ip header length, which is the length indicator of
-   * ip header multiplied by 4
-   * The header length indicates the number of 4-byte words contained
-   * in the header.
-   * The acceptable minimum is 5 and the maximum is 15
-   */
-  iphdrlen = ip->ip_hl << 2;
-
-  /* Beyond the ip header, point to the ICMP header */
-  icmp = (struct icmp *)(buf + iphdrlen);
-  /* Total length of ICMP header and ICMP datagram*/
-  len -= iphdrlen;
-
-  /*
-   * Less than ICMP header length is unreasonable
-   */
-  if (len < 8) {
-    printf("ICMP packets\'s length is less than 8\n");
-    return -1;
-  }
-
-  /*
-   * Be sure to receive a response to a previously issued ICMP packet
-   * icmpid is the same as the PID of the process which has initiated the
-   * ICMP ping (i.e. ICMP echo) packet in first place.
-   */
-  if ((icmp->icmp_type == ICMP_ECHOREPLY) && (icmp->icmp_id == pid)) {
-    tm_send = (struct timeval *)icmp->icmp_data;
-
-    /*Received and sent time difference*/
-    time_difference_in_secs(&tm_recv, tm_send);
-
-    /* Calculate rtt in milliseconds */
-    rtt = tm_recv.tv_sec * 1000 + tm_recv.tv_usec / 1000;
-
-    /* Display related information */
-    printf("%d byte from %s: icmp_seq=%u ttl=%d rtt=%.3f ms\n", len, inet_ntoa(from.sin_addr),
-           icmp->icmp_seq, ip->ip_ttl, rtt);
-  } else
-    return -1;
-
-  return 0;
-}
-
-/*******************************************************************
- *  Function: time_difference_in_secs
- *
- *  Description: The time difference is calculated by subtracting
- *  two timeval structures
- *******************************************************************/
-void time_difference_in_secs(struct timeval *time_recv, struct timeval *time_send) {
-  /*
-   * For sure recv secs will be greater than send secs. But, what
-   * if recv usecs is less than send usecs
-   */
-  if ((time_recv->tv_usec -= time_send->tv_usec) < 0) {
-    --time_recv->tv_sec;
-    time_recv->tv_usec += 1000000;
-  }
-  time_recv->tv_sec -= time_send->tv_sec;
-}
-
-/*******************************************************************
- * Function: cal_chksum
+/* ============================================================
+ * Internet checksum calculation (RFC 1071)
+ * ============================================================
  *
  * Description: calculate checksum
  *
@@ -191,36 +106,79 @@ void time_difference_in_secs(struct timeval *time_recv, struct timeval *time_sen
  * Arguments: 1st argument: pointer to beginning of the ICMP header
  *            2nd argument: Length of ICMP packet header (64 bytes)
  *******************************************************************/
-unsigned short cal_chksum(unsigned short *addr, int len) {
-  int nleft = len;
-  int sum = 0;
-  unsigned short *w = addr;
-  unsigned short answer = 0;
+static unsigned short checksum(void *buf, int len) {
+  unsigned int sum = 0;
+  unsigned short *ptr = buf;
 
-  /*
-   * The checksum is the 16-bit ones's complement of the one's
-   * complement sum of the ICMP message starting with the ICMP Type.
-   * For computing the checksum , the checksum field should be zero.
-   */
-
-  while (nleft > 1) {
-    sum += *w++;
-    nleft -= 2;
+  /* Sum 16-bit words */
+  while (len > 1) {
+    sum += *ptr++;
+    len -= 2;
   }
 
-  if (nleft == 1) {
-    *(unsigned char *)(&answer) = *(unsigned char *)w;
-    sum += answer;
+  /* Handle trailing byte, if any */
+  if (len == 1) {
+    sum += *(unsigned char *)ptr;
   }
 
+  /* Fold 32-bit sum to 16 bits */
   sum = (sum >> 16) + (sum & 0xffff);
   sum += (sum >> 16);
-  answer = ~sum;
-  return answer;
+
+  return (unsigned short)~sum;
 }
 
-/*******************************************************************
- * Function: frame_icmp_echo_header
+/* ============================================================
+ * Calculate recv_time - send_time
+ * ============================================================ */
+static void time_diff(struct timeval *recv, const struct timeval *send) {
+  recv->tv_sec -= send->tv_sec;
+  recv->tv_usec -= send->tv_usec;
+
+  if (recv->tv_usec < 0) {
+    recv->tv_sec--;
+    recv->tv_usec += 1000000;
+  }
+}
+
+/* ============================================================
+ * Signal handler (SIGINT, SIGALRM)
+ * Prints statistics and exits
+ * ============================================================ */
+static void signal_handler(int signo) {
+  (void)signo;
+
+  /* Async-signal-safe newline */
+  write(STDOUT_FILENO, "\n", 1);
+
+  printf("\n--- %s ping statistics ---\n", hostname);
+  if (nsend > 0) {
+    printf("%d packets transmitted, %d received, %.0f%% packet loss\n", nsend, nreceived,
+           ((double)(nsend - nreceived) / nsend) * 100.0);
+  }
+
+  if (sockfd >= 0) close(sockfd);
+
+  _exit(0);
+}
+
+/* Register a signal using sigaction (modern, reliable) */
+static void setup_signal(int sig) {
+  struct sigaction sa;
+  memset(&sa, 0, sizeof(sa));
+  sa.sa_handler = signal_handler;
+  sigemptyset(&sa.sa_mask);
+  sa.sa_flags = SA_RESTART;
+
+  if (sigaction(sig, &sa, NULL) < 0) {
+    perror("sigaction");
+    exit(EXIT_FAILURE);
+  }
+}
+
+/* ============================================================
+ * Build ICMP Echo Request packet
+ * ============================================================
  *
  * Description: Send "ICMP echo" packet to Destination Host
  *
@@ -234,115 +192,124 @@ unsigned short cal_chksum(unsigned short *addr, int len) {
  *    |      Internet Header + 64 bits of Original Data Datagram      |
  *    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *******************************************************************/
-int frame_icmp_echo_header(int pack_no) {
-  int packsize;
-  struct icmp *icmp;
-  struct timeval *tval;
+static int build_icmp_echo(int seq) {
+  struct icmphdr *icmp = (struct icmphdr *)sendpacket;
 
-  /* ICMP Header structure */
-  icmp = (struct icmp *)sendpacket;
-  /* ICMP echo TYPE */
-  icmp->icmp_type = ICMP_ECHO;  // 8 : Echo Request
-  icmp->icmp_code = 0;          // 0 = net unreachable
-  icmp->icmp_cksum = 0;
-  icmp->icmp_seq = pack_no;
-  icmp->icmp_id = pid;
-  packsize = 8 + ICMP_DATA_LEN;  // 8 + 56 (data) = 64 Bytes ICMP header
-  tval = (struct timeval *)icmp->icmp_data;
-  gettimeofday(tval, NULL);
-  /* Calculate checksum */
-  icmp->icmp_cksum = cal_chksum((unsigned short *)icmp, packsize);
-  return packsize;
+  /* Fill ICMP header */
+  icmp->type = ICMP_ECHO;
+  icmp->code = 0;
+  icmp->checksum = 0;
+  icmp->un.echo.id = pid;
+  icmp->un.echo.sequence = seq;
+
+  /* Store send timestamp in payload */
+  struct timeval *tv = (struct timeval *)(sendpacket + sizeof(struct icmphdr));
+  gettimeofday(tv, NULL);
+
+  /* ICMP header + payload */
+  int size = sizeof(struct icmphdr) + ICMP_DATA_LEN;
+
+  /* Compute checksum */
+  icmp->checksum = checksum(sendpacket, size);
+
+  return size;
 }
 
-/*******************************************************************
- * Function: send_icmp_echo_packet
- *
- * Description: Send "ICMP echo" packet to Destination Host
- *******************************************************************/
-void send_icmp_echo_packet() {
-  int packetsize;
+/* ============================================================
+ * Send ICMP Echo Request
+ * ============================================================ */
+static void send_echo(void) {
+  int size = build_icmp_echo(++nsend);
 
-  nsend++;
-  /* ICMP EHCO PACKET HEADER */
-  packetsize = frame_icmp_echo_header(nsend);
-
-  /* Send the ICMP packet to the destination Address */
-  if (sendto(sockfd, sendpacket, packetsize, 0, (struct sockaddr *)&dest_addr, sizeof(dest_addr)) <
-      0) {
-    perror("sendto error");
+  if (sendto(sockfd, sendpacket, size, 0, (struct sockaddr *)&dest_addr, sizeof(dest_addr)) < 0) {
+    perror("sendto");
     nsend--;
   }
+
+  /* Send one packet per second */
   sleep(1);
 }
 
-/*******************************************************************
- * Function: recv_icmp_reply_packet
- *
- * Description: Receive "ICMP reply" packet from Destination Host
- *******************************************************************/
-void recv_icmp_reply_packet() {
-  unsigned int n, fromlen;
-  extern int errno;
+/* ============================================================
+ * Parse ICMP Echo Reply
+ * ============================================================ */
+static int parse_reply(char *buf, int len) {
+  /* IP header is filled by kernel */
+  struct iphdr *ip = (struct iphdr *)buf;
 
-  signal(SIGALRM, signal_handler);
+  /* IHL is in 32-bit words */
+  int iphdrlen = ip->ihl * 4;
 
-  fromlen = sizeof(from);
+  if (len < iphdrlen + (int)sizeof(struct icmphdr)) return -1;
 
-  /* Received packet is stored in recvpacket global array */
+  struct icmphdr *icmp = (struct icmphdr *)(buf + iphdrlen);
+
+  /* Validate Echo Reply and process ID */
+  if (icmp->type == ICMP_ECHOREPLY && icmp->un.echo.id == pid) {
+    /* Extract send timestamp */
+    struct timeval *sent = (struct timeval *)(buf + iphdrlen + sizeof(struct icmphdr));
+
+    /* Compute RTT */
+    time_diff(&tm_recv, sent);
+
+    double rtt = tm_recv.tv_sec * 1000.0 + tm_recv.tv_usec / 1000.0;
+
+    printf("%d bytes from %s: icmp_seq=%u ttl=%d time=%.3f ms\n", len - iphdrlen,
+           inet_ntoa(from.sin_addr), icmp->un.echo.sequence, ip->ttl, rtt);
+
+    return 0;
+  }
+
+  return -1;
+}
+
+/* ============================================================
+ * Receive ICMP Echo Replies
+ * ============================================================ */
+static void receive_reply(void) {
+  socklen_t fromlen = sizeof(from);
+
   while (nreceived < nsend) {
-    if ((n = recvfrom(sockfd, recvpacket, sizeof(recvpacket), 0, (struct sockaddr *)&from,
-                      &fromlen)) < 0) {
-      if (errno == EINTR) continue;
+    ssize_t n =
+        recvfrom(sockfd, recvpacket, sizeof(recvpacket), 0, (struct sockaddr *)&from, &fromlen);
 
-      perror("recvfrom error");
+    if (n < 0) {
+      if (errno == EINTR) continue;
+      perror("recvfrom");
       continue;
     }
 
-    /* Get the current time stamp of the received ICMP reply packet */
     gettimeofday(&tm_recv, NULL);
 
-    /* Parse through received icmp reply packet */
-    if (unpack_icmp_reply(recvpacket, n) == -1) {
-      continue;
-    }
-    nreceived++;
+    if (parse_reply(recvpacket, (int)n) == 0) nreceived++;
   }
 }
 
-/********************************************************************************
- *                                main
- ********************************************************************************/
+/* ============================================================
+ * main
+ * ============================================================ */
 int main(int argc, char *argv[]) {
-  struct protoent *protocol;
-
-  int size = 50 * 1024;
-  int on = 1;
-
-  /* Register the process for SIGINT and SIGALRM */
-  signal(SIGINT, signal_handler);
-  signal(SIGALRM, signal_handler);
-
   if (argc != 2) {
-    printf("Enter Destination Host address as 1st argument\n");
+    fprintf(stderr, "Usage: %s <IPv4 address>\n", argv[0]);
+    return EXIT_FAILURE;
   }
 
-  /* IP address (x.y.z.a) of the destination host: Global variable */
   hostname = argv[1];
+  pid = getpid();
 
-  /* Protocol: ICMP */
-  if ((protocol = getprotobyname("icmp")) == NULL) {
-    perror("getprotobyname");
-    exit(1);
+  /* Register signal handlers */
+  setup_signal(SIGINT);
+  setup_signal(SIGALRM);
+
+  /* Create raw ICMP socket (root required) */
+  sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
+  if (sockfd < 0) {
+    perror("socket");
+    return EXIT_FAILURE;
   }
 
-  /* Create a RAW socket interface for ICMP echo packet. Socket file descriptor
-   * sockfd is a global variable
-   */
-  if ((sockfd = socket(AF_INET, SOCK_RAW, protocol->p_proto)) < 0) {
-    perror("socket error");
-    exit(1);
-  }
+  /* Increase receive buffer */
+  int rcvbuf = 50 * 1024;
 
   /* SO_RCVBUF
    * Sets or gets the maximum socket receive buffer in bytes. The
@@ -351,40 +318,34 @@ int main(int argc, char *argv[]) {
    * value is returned by getsockopt(2).
    */
   /* Manipulating socket options.  */
-  setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, &size, sizeof(size));
+  setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(rcvbuf));
   /*
    * SO_DONTROUTE
    * Don't send via a gateway, send only to directly connected
    * hosts.
    */
   /*************************************************************************
-   * IN ORDER TO PING TO NETWORKS BEYOND THE GATEWAY, COMMENT OUT THE BELOW
+   * IN ORDER TO PREVENT PING TO NETWORKS BEYOND THE GATEWAY, UNCOMMENT THE BELOW
    * LINE.
    *************************************************************************/
-  setsockopt(sockfd, SOL_SOCKET, SO_DONTROUTE, &on, sizeof(on));
+  // int on = 1;
+  // setsockopt(sockfd, SOL_SOCKET, SO_DONTROUTE, &on, sizeof(on));
 
-  bzero(&dest_addr, sizeof(dest_addr));
+  /* Destination address setup */
+  memset(&dest_addr, 0, sizeof(dest_addr));
   dest_addr.sin_family = AF_INET;
-  /* The  inet_addr() function converts the Internet host address
-   * from IPv4 numbers-and-dots notation (x.y.z.a) into binary data in network
-   * byte order.
-   */
-  dest_addr.sin_addr.s_addr = inet_addr(hostname);
 
-  pid = getpid();
-  /* The inet_ntoa() function converts the Internet host address in,
-   * given in network byte order, to a string in IPv4 dotted-decimal
-   * notation (x.y.z.a).
-   */
-  printf("PING %s(%s): %d bytes data in ICMP packets.\n", hostname, inet_ntoa(dest_addr.sin_addr),
-         ICMP_DATA_LEN);
-
-  for (;;) {
-    /* ICMP echo Ping */
-    send_icmp_echo_packet();
-    /* ICMP reply */
-    recv_icmp_reply_packet();
+  if (inet_pton(AF_INET, hostname, &dest_addr.sin_addr) != 1) {
+    fprintf(stderr, "Invalid IPv4 address\n");
+    return EXIT_FAILURE;
   }
 
-  return 0;
+  printf("PING %s (%s): %d bytes of data.\n", hostname, inet_ntoa(dest_addr.sin_addr),
+         ICMP_DATA_LEN);
+
+  /* Main loop */
+  for (;;) {
+    send_echo();
+    receive_reply();
+  }
 }
