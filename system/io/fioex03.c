@@ -2,9 +2,44 @@
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 int main(void) {
+  int fd = open("test.txt", O_CREAT | O_RDWR, 0666);
+  if (fd < 0) {
+    perror("open");
+    return EXIT_FAILURE;
+  }
+
+  int newfd;
+  char *s = "Jumping jammy this goes into the file\n";
+
+  // FCNTL -------------------------------
+
+  // close and get stdout
+  close(STDOUT_FILENO);
+  newfd = fcntl(fd, F_DUPFD, STDOUT_FILENO);
+  write(newfd, s, strlen(s));
+
+  // DUP call --------------------------------
+
+  // close and get stdout
+  close(STDOUT_FILENO);
+  newfd = dup(fd);
+  write(newfd, s, strlen(s));
+
+  // DUP2 call --------------------------------
+
+  // the following closes STDOUT_FILENO atomically before duplicating
+  newfd = dup2(fd, STDOUT_FILENO);
+  write(newfd, s, strlen(s));
+
+  close(newfd);
+  close(fd);
+
+  // ------------------- More Fcntl examples
+
   int fdOne, fdTwo, fdThree;
 
   fdOne = open("misc.txt", O_CREAT | O_TRUNC | O_WRONLY, S_IRWXU);
@@ -40,9 +75,9 @@ int main(void) {
     printf("New file descriptor is %d.\n", fdThree);
   }
 
-  close(fdOne);
   close(fdTwo);
   close(fdThree);
+  close(fdOne);
 
   return 0;
 }
