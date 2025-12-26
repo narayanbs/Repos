@@ -2,14 +2,14 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define MEMORY_POOL_SIZE (1024 * 1024) // 1MB memory pool
-#define MAX_LEVELS 21 // log2(1MB) = 20, safe upper limit for free list
+#define MEMORY_POOL_SIZE (1024 * 1024)  // 1MB memory pool
+#define MAX_LEVELS 21                   // log2(1MB) = 20, safe upper limit for free list
 
 // Structure to represent a block of memory
 typedef struct Block {
-  size_t size;        // Size of the block (power of 2)
-  int free;           // Whether the block is free (1) or used (0)
-  struct Block *next; // Pointer to the next block in the free list
+  size_t size;         // Size of the block (power of 2)
+  int free;            // Whether the block is free (1) or used (0)
+  struct Block *next;  // Pointer to the next block in the free list
 } Block;
 
 // Memory pool and free list
@@ -19,21 +19,19 @@ static Block *free_list[MAX_LEVELS];
 // Utility: integer log base 2
 int log2_size(size_t size) {
   int log = 0;
-  while (size >>= 1)
-    ++log;
+  while (size >>= 1) ++log;
   return log;
 }
 
 // Round up to next power of 2
 size_t next_power_of_two(size_t size) {
   size_t power = 1;
-  while (power < size)
-    power <<= 1;
+  while (power < size) power <<= 1;
   return power;
 }
 
 // Initialize buddy allocator
-void buddy_allocator_init() {
+void buddy_allocator_init(void) {
   memset(free_list, 0, sizeof(free_list));
 
   Block *initial_block = (Block *)memory_pool;
@@ -55,8 +53,7 @@ void add_to_free_list(Block *block) {
 
 // Remove and return the first block from a free list
 Block *remove_from_free_list(int index) {
-  if (free_list[index] == NULL)
-    return NULL;
+  if (free_list[index] == NULL) return NULL;
   Block *block = free_list[index];
   free_list[index] = block->next;
   block->next = NULL;
@@ -64,7 +61,7 @@ Block *remove_from_free_list(int index) {
 }
 
 // Split a block into two halves
-void split_block(Block *block, int index) {
+void split_block(Block *block) {
   size_t new_size = block->size / 2;
 
   Block *buddy = (Block *)((char *)block + new_size);
@@ -89,7 +86,7 @@ Block *find_block(size_t alloc_size) {
 
       // Split until block size matches required size
       while (block->size > alloc_size) {
-        split_block(block, log2_size(block->size));
+        split_block(block);
       }
 
       block->free = 0;
@@ -97,15 +94,14 @@ Block *find_block(size_t alloc_size) {
     }
   }
 
-  return NULL; // No suitable block found
+  return NULL;  // No suitable block found
 }
 
 // Calculate buddy address using XOR trick
 Block *get_buddy(Block *block) {
   size_t offset = (char *)block - memory_pool;
   size_t buddy_offset = offset ^ block->size;
-  if (buddy_offset >= MEMORY_POOL_SIZE)
-    return NULL;
+  if (buddy_offset >= MEMORY_POOL_SIZE) return NULL;
   return (Block *)(memory_pool + buddy_offset);
 }
 
@@ -153,23 +149,20 @@ void coalesce(Block *block) {
 
 // Allocate memory
 void *buddy_malloc(size_t size) {
-  if (size == 0 || size > MEMORY_POOL_SIZE - sizeof(Block))
-    return NULL;
+  if (size == 0 || size > MEMORY_POOL_SIZE - sizeof(Block)) return NULL;
 
   size_t total_size = size + sizeof(Block);
   size_t alloc_size = next_power_of_two(total_size);
 
   Block *block = find_block(alloc_size);
-  if (!block)
-    return NULL;
+  if (!block) return NULL;
 
   return (char *)block + sizeof(Block);
 }
 
 // Free memory
 void buddy_free(void *ptr) {
-  if (!ptr)
-    return;
+  if (!ptr) return;
 
   Block *block = (Block *)((char *)ptr - sizeof(Block));
   block->free = 1;
@@ -178,14 +171,14 @@ void buddy_free(void *ptr) {
 }
 
 // Debug print
-void print_free_list() {
+void print_free_list(void) {
   printf("Free list status:\n");
   for (int i = 0; i < MAX_LEVELS; i++) {
     if (free_list[i]) {
       printf("  Size %zu: ", (size_t)1 << i);
       Block *curr = free_list[i];
       while (curr) {
-        printf("[%p size=%zu] -> ", curr, curr->size);
+        printf("[%p size=%zu] -> ", (void *)curr, curr->size);
         curr = curr->next;
       }
       printf("NULL\n");
@@ -194,7 +187,7 @@ void print_free_list() {
 }
 
 // Example usage
-int main() {
+int main(void) {
   buddy_allocator_init();
 
   printf("Before allocation:\n");

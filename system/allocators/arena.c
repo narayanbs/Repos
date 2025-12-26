@@ -9,12 +9,16 @@
  * is created. We adjust the offsets to the newly created frame distances.
  *
  * When a request for resize is made, we check for the following conditions
+ *
  * 1. If the pointer does not point to an existing frame we create a new frame with the given new
  * size
  * 2. If the pointer points to an existing frame
  *  a) then if it is the current frame, we just need to adjust the offset distances to the new size
  *  b) else we create a new frame with the new size and  copy the contents of the frame we need to
  * resize
+ *
+ * Compile
+ * clang arena.c -Wall -Wextra -pedantic -fsanitize=address -fsanitize=undefined -o arena
  *
  */
 #include <assert.h>
@@ -24,39 +28,16 @@
 #include <stdio.h>
 #include <string.h>
 
-bool is_power_of_two(uintptr_t x) {
-  return (x & (x - 1)) == 0;
-}
-
-/*
- * Obtain the next aligned address
- */
-uintptr_t align_forward(uintptr_t ptr, size_t align) {
-  uintptr_t p, a, modulo;
-  assert(is_power_of_two(align));
-  p = ptr;
-  a = (uintptr_t)align;
-  modulo = p & (a - 1);
-  if (modulo != 0) {
-    p += a - modulo;
-  }
-  return p;
-  // The above can be replaced by the following bitwise operation
-  // return (ptr + align - 1) & ~(align - 1);
-}
-
 #ifndef DEFAULT_ALIGNMENT
 #define DEFAULT_ALIGNMENT (2 * sizeof(void *))
 #endif
 
-typedef struct Arena Arena;
-
-struct Arena {
+typedef struct {
   unsigned char *buf;
   size_t buf_len;
   size_t start_frame_offset;
   size_t end_frame_offset;
-};
+} Arena;
 
 void arena_init(Arena *a, void *backing_buffer, size_t backing_buffer_length) {
   a->buf = (unsigned char *)backing_buffer;
@@ -65,9 +46,32 @@ void arena_init(Arena *a, void *backing_buffer, size_t backing_buffer_length) {
   a->end_frame_offset = 0;
 }
 
-void *arena_alloc_align(Arena *a, size_t size, size_t align) {
+bool is_power_of_two(uintptr_t x) {
+  return (x & (x - 1)) == 0;
+}
+
+/*
+ * Obtain the next aligned address
+ *
+ * The logic is the following
+ *
+ * uintptr_t p, a, modulo;
+ * assert(is_power_of_two(align));
+ * p = ptr;
+ * a = (uintptr_t)align;
+ * modulo = p & (a - 1);
+ * if (modulo != 0) {
+ *   p += a - modulo;
+ * }
+ * return p;
+ */
+uintptr_t align_forward(uintptr_t ptr, size_t align) {
+  return (ptr + align - 1) & ~(align - 1);
+}
+
+void *arena_alloc(Arena *a, size_t size) {
   uintptr_t curr_ptr = (uintptr_t)a->buf + (uintptr_t)a->end_frame_offset;
-  uintptr_t aligned_ptr = align_forward(curr_ptr, align);
+  uintptr_t aligned_ptr = align_forward(curr_ptr, DEFAULT_ALIGNMENT);
   uintptr_t offset = aligned_ptr - (uintptr_t)a->buf;
 
   if (offset + size <= a->buf_len) {
@@ -81,23 +85,12 @@ void *arena_alloc_align(Arena *a, size_t size, size_t align) {
   return NULL;
 }
 
-void *arena_alloc(Arena *a, size_t size) {
-  return arena_alloc_align(a, size, DEFAULT_ALIGNMENT);
-}
-
-void arena_free(Arena *a, void *ptr) {
-  // Do nothing
-}
-
-void *arena_resize_align(Arena *a, void *old_memory, size_t old_size, size_t new_size,
-                         size_t align) {
+void *arena_resize(Arena *a, void *old_memory, size_t old_size, size_t new_size) {
   unsigned char *old_mem = (unsigned char *)old_memory;
-
-  assert(is_power_of_two(align));
 
   // return a new arena frame in case the pointer is NULL or size is zero
   if (old_mem == NULL || old_size == 0) {
-    return arena_alloc_align(a, new_size, align);
+    return arena_alloc(a, new_size);
   }
   // else check if the pointer is within limits of the arena
   else if (a->buf <= old_mem && old_mem < a->buf + a->buf_len) {
@@ -112,7 +105,7 @@ void *arena_resize_align(Arena *a, void *old_memory, size_t old_size, size_t new
     } else {
       // else if pointer points to another frame then
       // create a new frame and copy the contents to it.
-      void *new_memory = arena_alloc_align(a, new_size, align);
+      void *new_memory = arena_alloc(a, new_size);
       size_t copy_size = old_size < new_size ? old_size : new_size;
       memmove(new_memory, old_memory, copy_size);
       return new_memory;
@@ -122,10 +115,6 @@ void *arena_resize_align(Arena *a, void *old_memory, size_t old_size, size_t new
     assert(0 && "Memory is out of bounds of the buffer in this arena");
     return NULL;
   }
-}
-
-void *arena_resize(Arena *a, void *old_memory, size_t old_size, size_t new_size) {
-  return arena_resize_align(a, old_memory, old_size, new_size, DEFAULT_ALIGNMENT);
 }
 
 void arena_free_all(Arena *a) {
@@ -158,7 +147,7 @@ void temp_arena_memory_end(Temp_Arena_Memory temp) {
 /*
  * main function
  */
-int main(int argc, char **argv) {
+int main(void) {
   int i;
 
   unsigned char backing_buffer[256];
@@ -181,13 +170,13 @@ int main(int argc, char **argv) {
     *f = 987;
     memmove(str, "Hellope", 7);
 
-    printf("%p: %d\n", x, *x);
-    printf("%p: %f\n", f, *f);
-    printf("%p: %s\n", str, str);
+    printf("%p: %d\n", (void *)x, *x);
+    printf("%p: %f\n", (void *)f, *f);
+    printf("%p: %s\n", (void *)str, str);
 
     str = arena_resize(&a, str, 10, 16);
     memmove(str + 7, " world!", 7);
-    printf("%p: %s\n", str, str);
+    printf("%p: %s\n", (void *)str, str);
   }
 
   arena_free_all(&a);

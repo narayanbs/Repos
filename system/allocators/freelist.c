@@ -15,9 +15,9 @@
 #define MIN_ALIGNMENT 8
 
 // Enum representing allocation strategies
-typedef enum Placement_Policy {
-  Placement_Policy_Find_First, // First fit
-  Placement_Policy_Find_Best   // Best fit
+typedef enum {
+  Placement_Policy_Find_First,  // First fit
+  Placement_Policy_Find_Best    // Best fit
 } Placement_Policy;
 
 // Free list node structure representing a free block in the allocator
@@ -27,18 +27,18 @@ typedef struct FreeList_Node {
 } FreeList_Node;
 
 // Header placed before every allocated block to track metadata
-typedef struct FreeList_Header {
+typedef struct {
   size_t block_size;
   size_t padding;
 } FreeList_Header;
 
 // Allocator structure
-typedef struct FreeList {
-  void *data;              // Pointer to memory pool
-  size_t size;             // Total size of memory pool
-  size_t used;             // Used bytes
-  FreeList_Node *head;     // Head of the free list
-  Placement_Policy policy; // Allocation strategy
+typedef struct {
+  void *data;               // Pointer to memory pool
+  size_t size;              // Total size of memory pool
+  size_t used;              // Used bytes
+  FreeList_Node *head;      // Head of the free list
+  Placement_Policy policy;  // Allocation strategy
 } FreeList;
 
 // Resets the entire memory to a single free block
@@ -56,7 +56,7 @@ void freelist_free_all(FreeList *fl) {
 void free_list_init(FreeList *fl, void *data, size_t size) {
   fl->data = data;
   fl->size = size;
-  fl->policy = Placement_Policy_Find_First; // Default strategy
+  fl->policy = Placement_Policy_Find_First;  // Default strategy
   freelist_free_all(fl);
 }
 
@@ -93,11 +93,12 @@ void print_freelist(FreeList *fl) {
 }
 
 // Checks if a value is a power of two
-bool is_power_of_two(uintptr_t x) { return (x & (x - 1)) == 0; }
+bool is_power_of_two(uintptr_t x) {
+  return (x & (x - 1)) == 0;
+}
 
 // Calculates the required padding for alignment and header
-size_t calc_padding_with_header(uintptr_t ptr, uintptr_t alignment,
-                                size_t header_size) {
+size_t calc_padding_with_header(uintptr_t ptr, uintptr_t alignment, size_t header_size) {
   assert(is_power_of_two(alignment));
 
   uintptr_t modulo = ptr & (alignment - 1);
@@ -112,22 +113,18 @@ size_t calc_padding_with_header(uintptr_t ptr, uintptr_t alignment,
 }
 
 // Finds the first block that fits (first-fit strategy)
-FreeList_Node *freelist_find_first(FreeList *fl, size_t size, size_t alignment,
-                                   size_t *padding_,
+FreeList_Node *freelist_find_first(FreeList *fl, size_t size, size_t alignment, size_t *padding_,
                                    FreeList_Node **prev_node_) {
   FreeList_Node *node = fl->head;
   FreeList_Node *prev_node = NULL;
 
   while (node != NULL) {
-    size_t padding = calc_padding_with_header((uintptr_t)node, alignment,
-                                              sizeof(FreeList_Header));
+    size_t padding = calc_padding_with_header((uintptr_t)node, alignment, sizeof(FreeList_Header));
     size_t required_space = size + padding;
 
     if (node->block_size >= required_space) {
-      if (padding_)
-        *padding_ = padding;
-      if (prev_node_)
-        *prev_node_ = prev_node;
+      if (padding_) *padding_ = padding;
+      if (prev_node_) *prev_node_ = prev_node;
       return node;
     }
 
@@ -139,8 +136,7 @@ FreeList_Node *freelist_find_first(FreeList *fl, size_t size, size_t alignment,
 }
 
 // Finds the best fitting block (best-fit strategy)
-FreeList_Node *freelist_find_best(FreeList *fl, size_t size, size_t alignment,
-                                  size_t *padding_,
+FreeList_Node *freelist_find_best(FreeList *fl, size_t size, size_t alignment, size_t *padding_,
                                   FreeList_Node **prev_node_) {
   size_t smallest_diff = ~(size_t)0;
   FreeList_Node *node = fl->head;
@@ -150,8 +146,7 @@ FreeList_Node *freelist_find_best(FreeList *fl, size_t size, size_t alignment,
   size_t best_padding = 0;
 
   while (node != NULL) {
-    size_t padding = calc_padding_with_header((uintptr_t)node, alignment,
-                                              sizeof(FreeList_Header));
+    size_t padding = calc_padding_with_header((uintptr_t)node, alignment, sizeof(FreeList_Header));
     size_t required_space = size + padding;
 
     if (node->block_size >= required_space) {
@@ -168,29 +163,24 @@ FreeList_Node *freelist_find_best(FreeList *fl, size_t size, size_t alignment,
     node = node->next;
   }
 
-  if (padding_)
-    *padding_ = best_padding;
-  if (prev_node_)
-    *prev_node_ = best_prev;
+  if (padding_) *padding_ = best_padding;
+  if (prev_node_) *prev_node_ = best_prev;
   return best_node;
 }
 
 // Allocates memory from the free list
 void *freelist_alloc(FreeList *fl, size_t size, size_t alignment) {
   // Enforce minimum allocation and alignment
-  if (size < sizeof(FreeList_Node))
-    size = sizeof(FreeList_Node);
-  if (alignment < MIN_ALIGNMENT)
-    alignment = MIN_ALIGNMENT;
+  if (size < sizeof(FreeList_Node)) size = sizeof(FreeList_Node);
+  if (alignment < MIN_ALIGNMENT) alignment = MIN_ALIGNMENT;
 
   size_t padding = 0;
   FreeList_Node *prev_node = NULL;
 
   // Choose placement strategy
-  FreeList_Node *node =
-      (fl->policy == Placement_Policy_Find_Best)
-          ? freelist_find_best(fl, size, alignment, &padding, &prev_node)
-          : freelist_find_first(fl, size, alignment, &padding, &prev_node);
+  FreeList_Node *node = (fl->policy == Placement_Policy_Find_Best)
+                            ? freelist_find_best(fl, size, alignment, &padding, &prev_node)
+                            : freelist_find_first(fl, size, alignment, &padding, &prev_node);
 
   if (node == NULL) {
     assert(0 && "Free list has no free memory");
@@ -203,8 +193,7 @@ void *freelist_alloc(FreeList *fl, size_t size, size_t alignment) {
 
   // Debug print allocation request and chosen block info
   printf("[ALLOC] Request size=%zu, alignment=%zu\n", size, alignment);
-  printf("[ALLOC] Using free block at %p, size=%zu\n", (void *)node,
-         node->block_size);
+  printf("[ALLOC] Using free block at %p, size=%zu\n", (void *)node, node->block_size);
 
   // space gained through alignment
   size_t extra_space = 0;
@@ -217,15 +206,13 @@ void *freelist_alloc(FreeList *fl, size_t size, size_t alignment) {
     extra_space = aligned_ptr - curr_ptr;
 
     if ((remaining - extra_space) >= sizeof(struct FreeList_Node)) {
-
       // Instead of removing node then inserting, just adjust current node and
       // insert new_node in its place
       FreeList_Node *new_node = (FreeList_Node *)((void *)aligned_ptr);
       new_node->block_size = remaining - extra_space;
       freelist_node_insert(&fl->head, node, new_node);
 
-      printf("Remaining block %p of size %zu\n", (void *)new_node,
-             remaining - extra_space);
+      printf("Remaining block %p of size %zu\n", (void *)new_node, remaining - extra_space);
     }
   }
 
@@ -236,8 +223,7 @@ void *freelist_alloc(FreeList *fl, size_t size, size_t alignment) {
   freelist_node_remove(&fl->head, prev_node, node);
 
   // Setup allocation header and return aligned pointer
-  FreeList_Header *header_ptr =
-      (FreeList_Header *)((char *)node + alignment_padding);
+  FreeList_Header *header_ptr = (FreeList_Header *)((char *)node + alignment_padding);
   header_ptr->block_size = required_space;
   header_ptr->padding = alignment_padding;
 
@@ -247,24 +233,21 @@ void *freelist_alloc(FreeList *fl, size_t size, size_t alignment) {
 }
 
 // Merges adjacent free blocks
-void freelist_coalescence(FreeList *fl, FreeList_Node *prev_node,
-                          FreeList_Node *free_node) {
+void freelist_coalescence(FreeList *fl, FreeList_Node *prev_node, FreeList_Node *free_node) {
   // Coalesce with next
   if (free_node->next != NULL &&
-      (void *)((char *)free_node + free_node->block_size) ==
-          (void *)free_node->next) {
-    printf("Coalescing free block [%p] with next block [%p] ...\n",
-           (void *)free_node, (void *)free_node->next);
+      (void *)((char *)free_node + free_node->block_size) == (void *)free_node->next) {
+    printf("Coalescing free block [%p] with next block [%p] ...\n", (void *)free_node,
+           (void *)free_node->next);
     free_node->block_size += free_node->next->block_size;
     freelist_node_remove(&fl->head, free_node, free_node->next);
   }
 
   // Coalesce with previous
   if (prev_node != NULL &&
-      (void *)((char *)prev_node + prev_node->block_size) ==
-          (void *)free_node) {
-    printf("Coalescing free block [%p] with previous block [%p] ...\n",
-           (void *)free_node, (void *)prev_node);
+      (void *)((char *)prev_node + prev_node->block_size) == (void *)free_node) {
+    printf("Coalescing free block [%p] with previous block [%p] ...\n", (void *)free_node,
+           (void *)prev_node);
     prev_node->block_size += free_node->block_size;
     freelist_node_remove(&fl->head, prev_node, free_node);
   }
@@ -272,14 +255,11 @@ void freelist_coalescence(FreeList *fl, FreeList_Node *prev_node,
 
 // Frees previously allocated memory
 void *freelist_free(FreeList *fl, void *ptr) {
-  if (ptr == NULL)
-    return NULL;
+  if (ptr == NULL) return NULL;
 
   // Get header and free node pointer
-  FreeList_Header *header =
-      (FreeList_Header *)((char *)ptr - sizeof(FreeList_Header));
-  FreeList_Node *free_node =
-      (FreeList_Node *)((char *)header - header->padding);
+  FreeList_Header *header = (FreeList_Header *)((char *)ptr - sizeof(FreeList_Header));
+  FreeList_Node *free_node = (FreeList_Node *)((char *)header - header->padding);
   free_node->block_size = header->block_size;
   free_node->next = NULL;
 
@@ -309,11 +289,11 @@ void *freelist_free(FreeList *fl, void *ptr) {
 
 #if defined(FIRST_PLACEMENT)
 int main(void) {
-  unsigned char buf[1024]; // Increased buffer size to avoid early OOM
-  FreeList fl = {0};       // Allocator instance
+  unsigned char buf[1024];  // Increased buffer size to avoid early OOM
+  FreeList fl = {0};        // Allocator instance
 
   free_list_init(&fl, buf, sizeof(buf));
-  fl.policy = Placement_Policy_Find_Best; // or Placement_Policy_Find_Best
+  fl.policy = Placement_Policy_Find_Best;  // or Placement_Policy_Find_Best
 
   // Allocate int and float as before
   int *i = (int *)freelist_alloc(&fl, sizeof(int), 8);
@@ -334,14 +314,12 @@ int main(void) {
   double *d1 = (double *)freelist_alloc(&fl, sizeof(double), 8);
   long long *ll1 = (long long *)freelist_alloc(&fl, sizeof(long long), 16);
 
-  for (int idx = 0; idx < 16; ++idx)
-    c1[idx] = (char)(idx + 65); // Fill with letters A-P
+  for (int idx = 0; idx < 16; ++idx) c1[idx] = (char)(idx + 65);  // Fill with letters A-P
   *d1 = 3.141592653589793;
   *ll1 = 0x123456789ABCDEF0;
 
   printf("[Test3] c1: ");
-  for (int idx = 0; idx < 16; ++idx)
-    printf("%c", c1[idx]);
+  for (int idx = 0; idx < 16; ++idx) printf("%c", c1[idx]);
   printf(", d1: %.15f, ll1: 0x%llX\n", *d1, *ll1);
 
   // Free some blocks out of order
@@ -393,8 +371,7 @@ int main(void) {
   if (remaining_block == NULL) {
     printf("Allocation FAILED for %zu bytes\n", max_alloc_size);
   } else {
-    printf("Allocation succeeded: %zu bytes at %p\n", max_alloc_size,
-           remaining_block);
+    printf("Allocation succeeded: %zu bytes at %p\n", max_alloc_size, remaining_block);
     printf("Used after allocation: %zu bytes\n", fl.used);
   }
 
@@ -460,16 +437,20 @@ int main(void) {
   void *p2 = freelist_alloc(&fl, 50, 8);
   void *p3 = freelist_alloc(&fl, 150, 8);
 
+  // to prevent unused warning
+  (void)p2;
+
   // Free them in a way that leaves two distinct-sized free blocks
-  freelist_free(&fl, p1); // Leaves a free block of ~112 bytes
-  freelist_free(&fl, p3); // Leaves a free block of ~160 bytes
+  freelist_free(&fl, p1);  // Leaves a free block of ~112 bytes
+  freelist_free(&fl, p3);  // Leaves a free block of ~160 bytes
 
   // The free list now contains a ~112-byte block and a ~160-byte block.
   // 'p2' (50 bytes) remains allocated in the middle.
 
   printf("\nTest Case for Best-Fit Policy:\n");
-  printf("Free blocks available: ~112 bytes and ~160 bytes (plus a 50-byte "
-         "used block in between).\n");
+  printf(
+      "Free blocks available: ~112 bytes and ~160 bytes (plus a 50-byte "
+      "used block in between).\n");
 
   // Allocate a block of 64 bytes.
   // With First-Fit, it would use the first free block (~112 bytes).
@@ -480,16 +461,17 @@ int main(void) {
   freelist_free_all(&fl);
 
   // Setup a scenario with a 'perfect' fit
-  void *alloc1 = freelist_alloc(&fl, 50, 8); // Used block
-  void *alloc2 = freelist_alloc(&fl, 70, 8); // The 'first' free block candidate
-  void *alloc3 = freelist_alloc(&fl, 60, 8); // Used block
-  void *alloc4 = freelist_alloc(&fl, 30, 8); // The 'best' free block candidate
+  void *alloc1 = freelist_alloc(&fl, 50, 8);  // Used block
+  void *alloc2 = freelist_alloc(&fl, 70, 8);  // The 'first' free block candidate
+  void *alloc3 = freelist_alloc(&fl, 60, 8);  // Used block
+  void *alloc4 = freelist_alloc(&fl, 30, 8);  // The 'best' free block candidate
 
-  freelist_free(&fl, alloc2); // Free block 1: ~70 bytes
-  freelist_free(&fl, alloc4); // Free block 2: ~30 bytes
+  freelist_free(&fl, alloc2);  // Free block 1: ~70 bytes
+  freelist_free(&fl, alloc4);  // Free block 2: ~30 bytes
 
-  printf("\nCreated two free blocks: a large one (~70 bytes) and a small one "
-         "(~30 bytes).\n");
+  printf(
+      "\nCreated two free blocks: a large one (~70 bytes) and a small one "
+      "(~30 bytes).\n");
   printf("Now attempting to allocate a 25-byte block.\n");
 
   // Request a 25-byte block.

@@ -16,21 +16,17 @@
 
 #define DEFAULT_ALIGNMENT (sizeof(void *))
 
-typedef struct Stack Stack;
-
-struct Stack {
+typedef struct {
   unsigned char *buf;
   size_t length;
   size_t frame_start_offset;
   size_t frame_end_offset;
-};
+} Stack;
 
-typedef struct StackHeader StackHeader;
-
-struct StackHeader {
+typedef struct {
   size_t prev_frame_start_offset;
   size_t prev_frame_padding;
-};
+} StackHeader;
 
 void stack_init(Stack *s, void *buf, size_t buf_length) {
   s->buf = buf;
@@ -70,13 +66,13 @@ void *stack_alloc(Stack *s, size_t size) {
          s->frame_end_offset);
 
   // Now return the pointer to the payload (sans the StackHeader)
-  return (void *)aligned_ptr + sizeof(StackHeader);
+  return (void *)(aligned_ptr + sizeof(StackHeader));
 }
 
 void *stack_free(Stack *s, void *ptr) {
   // Obtain the StackHeader to get the start offset of the previous frame
   // and the paddding between the current and previous frame
-  StackHeader *sh = (void *)ptr - sizeof(StackHeader);
+  StackHeader *sh = (StackHeader *)((char *)ptr - sizeof(StackHeader));
 
   // Update the offsets of the stack to the previous frame
   s->frame_end_offset = (uintptr_t)sh - sh->prev_frame_padding - (uintptr_t)s->buf;
@@ -85,7 +81,7 @@ void *stack_free(Stack *s, void *ptr) {
          s->frame_end_offset);
 
   // Return the pointer to the payload
-  return (void *)&s->buf[s->frame_start_offset] + sizeof(StackHeader);
+  return (void *)((char *)&s->buf[s->frame_start_offset] + sizeof(StackHeader));
 }
 
 int main(void) {

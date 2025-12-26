@@ -19,37 +19,6 @@ typedef unsigned char bool;
 #include <stdio.h>
 #include <string.h>
 
-static int counter = 0;
-
-bool is_power_of_two(uintptr_t x) {
-  return (x & (x - 1)) == 0;
-}
-
-uintptr_t align_forward_uintptr(uintptr_t ptr, uintptr_t align) {
-  uintptr_t a, p, modulo;
-  assert(is_power_of_two(align));
-
-  a = align;
-  p = ptr;
-  modulo = p & (a - 1);
-  if (modulo != 0) {
-    p += a - modulo;
-  }
-  return p;
-}
-
-size_t align_forward_size(size_t ptr, size_t align) {
-  size_t a, p, modulo;
-  assert(is_power_of_two(align));
-  a = align;
-  p = ptr;
-  modulo = p & (a - 1);
-  if (modulo != 0) {
-    p += a - modulo;
-  }
-  return p;
-}
-
 #ifndef DEFAULT_ALIGNMENT
 #define DEFAULT_ALIGNMENT 8
 #endif
@@ -60,18 +29,31 @@ struct Pool_Free_Node {
   Pool_Free_Node *next;
 };
 
-typedef struct Pool Pool;
-
-struct Pool {
+typedef struct {
   unsigned char *buf;
   size_t buf_len;
   size_t chunk_size;
   Pool_Free_Node *head;
-};
+} Pool;
+
+static int counter = 0;
+
+bool is_power_of_two(uintptr_t x) {
+  return (x & (x - 1)) == 0;
+}
+
+uintptr_t align_forward_uintptr(uintptr_t ptr, uintptr_t align) {
+  return (ptr + align - 1) & ~(align - 1);
+}
+
+size_t align_forward_size(size_t ptr, size_t align) {
+  return (ptr + align - 1) & ~(align - 1);
+}
 
 void pool_free_all(Pool *p);
 
-void pool_init(Pool *p, void *backing_buffer, size_t backing_buffer_length, size_t chunk_size, size_t chunk_alignment) {
+void pool_init(Pool *p, void *backing_buffer, size_t backing_buffer_length, size_t chunk_size,
+               size_t chunk_alignment) {
   uintptr_t initial_start = (uintptr_t)backing_buffer;
   uintptr_t start = align_forward_uintptr(initial_start, (uintptr_t)chunk_alignment);
   backing_buffer_length -= (size_t)(start - initial_start);
@@ -79,7 +61,8 @@ void pool_init(Pool *p, void *backing_buffer, size_t backing_buffer_length, size
   chunk_size = align_forward_size(chunk_size, chunk_alignment);
 
   assert(chunk_size >= sizeof(Pool_Free_Node) && "Chunk size is too small");
-  assert(backing_buffer_length >= chunk_size && "Backing buffer length is smaller than the chunk size");
+  assert(backing_buffer_length >= chunk_size &&
+         "Backing buffer length is smaller than the chunk size");
 
   p->buf = (unsigned char *)start;
   p->buf_len = backing_buffer_length;
@@ -131,7 +114,7 @@ void pool_free_all(Pool *p) {
   }
 }
 
-int main(int argc, char *argv[]) {
+int main(void) {
   unsigned char backing_buffer[1024];
   Pool p;
   void *a, *b, *c, *d, *e, *f;
