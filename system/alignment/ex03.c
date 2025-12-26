@@ -1,16 +1,8 @@
 /*
  * Example to indicate misaligned access using pointers
- * function h is optiimized by gcc to return 1,
- * even though f is passing misaligned pointers
  *
- * function solutionh is a way to return the correct answer
- * even if misaligned pointers are passed.
- *
- * Note: memcpy doesn't care about endianess while copying it just
- * copies bytes as it is.
  *
  * Read more at Articles/Pointer_Aligned_access.html
- *
  */
 #include <assert.h>
 #include <stdalign.h>
@@ -19,13 +11,19 @@
 #include <stdlib.h>
 #include <string.h>
 
-int h(int* p, int* q) {
+/*
+ * undefined behavior, q is misaligned
+ */
+int misaligned_func1(int* p, int* q) {
   *p = 1;
   *q = 1;
   return *p;
 }
 
-int solutionh(int* p, int* q) {
+/*
+ * memcpy to misaligned address is also undefined behavior
+ */
+int misaligned_func2(int* p, int* q) {
   *p = 1;
   int one = 1;
   memcpy(q, &one, sizeof *q);
@@ -37,9 +35,13 @@ void f(void) {
   if (!t) abort();
   int* fp = (int*)t;
   int* fq = (int*)(t + 1);
-  int r = h(fp, fq);
+
+  int r = misaligned_func1(fp, fq);
   printf("%d %d\n", r, *fp);
   assert(r == *fp);
+
+  // same as above.
+  // int r = misalgined_func2(fp, fq);
 }
 
 int main(void) {
