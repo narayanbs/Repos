@@ -1,3 +1,7 @@
+/*
+ * Future implentation in C language.
+ * Similar to python concurrent futures
+ */
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>

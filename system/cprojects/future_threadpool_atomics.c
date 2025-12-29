@@ -1,3 +1,6 @@
+/*
+ * Future imolementation in C, using C11 atomics
+ */
 #include <pthread.h>
 #include <stdatomic.h>
 #include <stdio.h>

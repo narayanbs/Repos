@@ -1,3 +1,6 @@
+/*
+ * Future implemenation in C, using an eventloop
+ */
 #include <stdio.h>   // Provides printf
 #include <stdlib.h>  // Provides malloc and free
 

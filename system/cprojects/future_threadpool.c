@@ -1,3 +1,6 @@
+/*
+ * Future implementation in C, with a Thread pool
+ */
 #include <pthread.h>  // POSIX threads (pthread_* APIs)
 #include <stdio.h>    // printf
 #include <stdlib.h>   // malloc, free
