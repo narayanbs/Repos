@@ -7,9 +7,9 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-/* =========================
-   Lock-free Queue (MS Queue)
-   ========================= */
+/* =========================================
+   Lock-free Queue (Michael Scott Queue)
+   ========================================= */
 
 typedef struct Node {
   void *value;
