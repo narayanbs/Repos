@@ -32,6 +32,9 @@ static int child_func(void* arg) {
 
 int main(int argc, char** argv) {
   // Allocate stack for child task.
+  // Since the child and calling process may share memory, it is not possible for the child process
+  // to execute in the same stack as the calling process.  The calling process must therefore set up
+  // memory space for the child stack
   const int STACK_SIZE = 65536;
   char* stack = malloc(STACK_SIZE);
   if (!stack) {
@@ -48,6 +51,13 @@ int main(int argc, char** argv) {
   int child_pid;
   char buffer[100];
   strcpy(buffer, "hello from parent");
+
+  // The stack argument specifies the location of the stack used by the child process.
+  // and is a pointer to this space.  Stacks grow downward on all
+  // processors that run Linux (except the HP PA processors), so stack usually points to the topmost
+  // address of the memory space set up for the child stack. (hence stack + STACK_SIZE )
+  // Note that clone() does not provide a means whereby the caller can inform the kernel
+  // of the size of the stack area.
   if ((child_pid = clone(child_func, stack + STACK_SIZE, flags | SIGCHLD, buffer)) == -1) {
     perror("clone");
     exit(1);
