@@ -5,7 +5,6 @@
  * using a semaphore and a mutex. It also includes a producer-consumer
  * example showing how threads can wait for a condition to become true.
  *
- * Author: OpenAI ChatGPT
  */
 
 #include <pthread.h>
