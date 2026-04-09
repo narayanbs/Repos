@@ -21,7 +21,7 @@ int getNextState(std::string pat, int M, int state, int x) {
         return ns;
     }
   }
-  return ns;
+  return 0;
 }
 
 void computeTF(std::string pat, int M, int TF[][NO_OF_CHARS]) {
