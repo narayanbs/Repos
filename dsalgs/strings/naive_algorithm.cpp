@@ -1,29 +1,22 @@
-/*
- * Naive algorithm
- * Here we check the match by sliding the pattern one step at a time
- */
-
-#include <cstring>
 #include <iostream>
 
 int main() {
-  std::string s = "hello how are you doing? are you ok ? are you";
-  std::string p = "you";
+  std::string txt = "hello how are you doing? are you ok ? are you";
+  std::string pat = "you";
 
-  int m = s.size();
-  int n = p.size();
+  int M = pat.size();
+  int N = txt.size();
 
-  for (int i = 0; i < m - n + 1; i++) {
-    int equal = 1;
-    for (int j = 0; j < n; j++) {
-      if (p[j] != s[i + j]) {
-        equal = 0;
+  for (int i = 0; i <= (N - M); i++) {
+    int j = 0;
+    for (j = 0; j < M; j++) {
+      if (pat[j] != txt[i + j]) {
         break;
       }
     }
-    if (equal)
-      std::cout << "Pattern found at " << i << std::endl;
+    if (j == M) {
+      std::cout << "Pattern found at index " << i << std::endl;
+    }
   }
-
   return 0;
 }
