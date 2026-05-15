@@ -7,11 +7,11 @@
 // Simple example of random number generation
 
 #include <stdio.h>
-#include <stdlib.h>  // for srand(), rand()
-#include <time.h>    // for time()
+#include <stdlib.h> // for srand(), rand()
+#include <time.h>   // for time()
 
 int main() {
-  srand(time(0));  // seed the random number generator
+  srand(time(0)); // seed the random number generator
   int r;
 
   float f;

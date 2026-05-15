@@ -8,9 +8,13 @@
 #include <wchar.h>
 
 int main(void) {
+  // By default C program runs in "C" locale. We need to explicitly
+  // change it if we need to use a different locale.
+  // The following function says that,  use the locale specified by user's
+  // environment variables like LC_ALL LC_CTYPE LC_TIME LC_NUMERIC LANG
   setlocale(LC_ALL, "");
 
-  char* mb_string = "\u20ac1.23";
+  char *mb_string = "\u20ac1.23";
   size_t mb_len = strlen(mb_string);
 
   wchar_t wc_string[128];
@@ -23,7 +27,7 @@ int main(void) {
   // Another way to get the length of a multibyte string is
   // The following string has 7 characters
   size_t len_in_chars = mbstowcs(NULL, "§¶°±π€•", 0);
-  printf("Length of multibyte string is %zu\n", len_in_chars);  // 7
+  printf("Length of multibyte string is %zu\n", len_in_chars); // 7
 
   // Again, that’s a non-portable POSIX extension.
   // And, of course, if you want to convert the other way, it’s wcstombs().
