@@ -11,6 +11,6 @@ int main(void) {
   printf("z = %.1f + %.1fi", creal(z), cimag(z));
   double w = x + y;
   // only real part, imaginary part is ignored
-  printf("z = %.1f + %.1fi", creal(z), cimag(z));
+  printf("w = %.1f + %.1fi", creal(w), cimag(w));
   return 0;
 }

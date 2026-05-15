@@ -1,17 +1,17 @@
 /* PRNG in c language to generate random numbers
  * Two primary functions rand() and srand()
  * rand() generates a random number between [0, RAND_MAX]
- * srand() sets the seed, if srand is not called then rand seet is
+ * srand() sets the seed, if srand is not called then rand seed is
  * set as if srand(1) is called at program start.
  */
 // Simple example of random number generation
 
 #include <stdio.h>
-#include <stdlib.h> // for srand(), rand()
-#include <time.h>   // for time()
+#include <stdlib.h>  // for srand(), rand()
+#include <time.h>    // for time()
 
 int main() {
-  srand(time(0)); // seed the random number generator
+  srand(time(0));  // seed the random number generator
   int r;
 
   float f;
