@@ -5,7 +5,7 @@
 
 /* floating point literals in hexadecimal */
 void printHexadecimal() {
-  double d = 0x0.3p10; /* 3*(16^-1)*(2^10)  == 192*/
+  double d = 0x1.3p10; /* (1*(1/16) + 3*(1/16)) * (2^10)  == 1216*/
   printf("%.f\n", d);
 }
 
