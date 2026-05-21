@@ -135,6 +135,25 @@ arguments:  dq  command
 mov rsi, arguments
 
 Note:--------------------
+NASM itself does not automatically insert padding like a C compiler does for structs,
+mystruct:
+    db  1       ; 1 byte
+    dq  2       ; 8 bytes
+
+You must add padding manually
+mystruct:
+    db  1
+    times 7 db 0
+    dq  2
+
+or align explicitly
+
+mystruct:
+    db 1
+    align 8
+    dq 2
+
+Note:--------------------
 An example of memory addresses using  base + index * scale + displacement  
 Let's consider an array of ten integers i.e. int a[10];
 a[5] provides access to the sixth integer. 
