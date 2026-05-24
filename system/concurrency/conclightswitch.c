@@ -60,6 +60,11 @@ void lightswitch_lock(LightSwitch *ls, sem_t *shared) {
   ls->counter++;
 
   /* First thread locks the shared resource */
+  /* This will make the writers wait till the last reader has finished
+   * Similarly if a writer is already writing, sem_wait will prevent other
+   * readers from progressing as it has the lock. Once the writer has finished,
+   * the readers can proceed
+   */
   if (ls->counter == 1) {
     sem_wait(shared);
   }
