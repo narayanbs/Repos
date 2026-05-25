@@ -31,7 +31,12 @@ int main(void) {
 
   // DUP2 call --------------------------------
 
-  // the following closes STDOUT_FILENO atomically before duplicating
+  // dup2(oldfd, newfd);
+  // newfd is a copy of the oldfd, if newfd is already open, it is closed first.
+  //
+  // here STDOUT_FILENO is closed if it is open and pointed to fd.
+  // so writing to STDOUT_FILENO is the same as writing to fd.
+  // newfd is same as STDOUT_FILENO
   newfd = dup2(fd, STDOUT_FILENO);
   write(newfd, s, strlen(s));
 
