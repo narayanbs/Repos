@@ -70,6 +70,22 @@ int main(int argc, char *argv[]) {
 
   printf("Mode:                     %jo (octal)\n", (uintmax_t)sb.st_mode);
 
+  printf("Permissions for owner:\n");
+  if (sb.st_mode & S_IRUSR)
+    printf("Read permission: YES\n");
+  else
+    printf("Read permission: NO\n");
+
+  if (sb.st_mode & S_IWUSR)
+    printf("Write permission: YES\n");
+  else
+    printf("Write permission: NO\n");
+
+  if (sb.st_mode & S_IXUSR)
+    printf("Execute permission: YES\n");
+  else
+    printf("Execute permission: NO\n");
+
   printf("Link count:               %ju\n", (uintmax_t)sb.st_nlink);
   printf("Ownership:                UID=%ju   GID=%ju\n", (uintmax_t)sb.st_uid,
          (uintmax_t)sb.st_gid);
