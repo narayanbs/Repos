@@ -17,7 +17,10 @@ int main(void) {
 
   // FCNTL -------------------------------
 
-  // close and get stdout
+  // fcntl(fd, F_DUPFD, STDOUT_FILENO)
+  // It creates a duplicate of fd, but:
+  // The new file descriptor will be the lowest-numbered available fd ≥ STDOUT_FILENO
+  // if we close STDOUT_FILENO , it becomes free. fd is duplicated to 1 (STDOUT_FILENO)
   close(STDOUT_FILENO);
   newfd = fcntl(fd, F_DUPFD, STDOUT_FILENO);
   write(newfd, s, strlen(s));
