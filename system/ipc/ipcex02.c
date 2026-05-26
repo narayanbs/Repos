@@ -26,9 +26,9 @@ int main(void) {
   }
 
   printf("PID %d: ...\n", getpid());
-  sigset_t set, old;
 
   /* Block SIGUSR1 */
+  sigset_t set, old;
   sigemptyset(&set);
   sigaddset(&set, SIGUSR1);
   // change signal mask of current thread to block SIGUSR1
