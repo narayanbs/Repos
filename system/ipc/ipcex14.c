@@ -11,11 +11,10 @@
 
 int main(void) {
   int s, s2, len;
-  struct sockaddr_un remote,
-      local = {
-          .sun_family = AF_UNIX,
-          // .sun_path = SOCK_PATH,   // Can't do assignment to an array
-      };
+  struct sockaddr_un remote, local = {
+                                 .sun_family = AF_UNIX,
+                                 // .sun_path = SOCK_PATH,   // Can't do assignment to an array
+                             };
   char str[100];
 
   if ((s = socket(AF_UNIX, SOCK_STREAM, 0)) == -1) {
@@ -24,6 +23,10 @@ int main(void) {
   }
 
   strcpy(local.sun_path, SOCK_PATH);
+  // why unlink??? "for bind address in use error"
+  // remove any previously found socket file
+  // using just the socket path filename, the kernel will create a special file during
+  // bind call...
   unlink(local.sun_path);
   len = strlen(local.sun_path) + sizeof(local.sun_family);
   if (bind(s, (struct sockaddr *)&local, len) == -1) {
@@ -51,8 +54,7 @@ int main(void) {
     do {
       n = recv(s2, str, sizeof(str), 0);
       if (n <= 0) {
-        if (n < 0)
-          perror("recv");
+        if (n < 0) perror("recv");
         done = 1;
       }
 
