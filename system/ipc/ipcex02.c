@@ -1,3 +1,9 @@
+/*
+ * alternate way of blocking signals
+ * apart from sa_mask in signal handler
+ * Note:
+ * sa_mask is the preferred way
+ */
 #include <errno.h>
 #include <signal.h>
 #include <stdio.h>
@@ -7,8 +13,25 @@
 volatile sig_atomic_t got_usr1;
 int counter = 0;
 
+/*
+ * your process receives SIGUSR1 this handler runs
+ * during the handler someone presses Ctrl+C (SIGINT)
+ * SIGINT is blocked, so it becomes pending
+ * after restoration , kernel immediately delivers it
+ * which usually terminates the process.
+ */
 void sigusr1_handler(int sig) {
+  // Manually block signal without using sa_mask
+  // Note: sa_mask is the preferred way
+  sigset_t set, old;
+  sigemptyset(&set);
+  sigaddset(&set, SIGINT);
+  sigprocmask(SIG_BLOCK, &set, &old);
+
   got_usr1 = 1;
+
+  // Restore old mask
+  sigprocmask(SIG_SETMASK, &old, NULL);
 }
 
 int main(void) {
@@ -26,6 +49,9 @@ int main(void) {
   }
 
   printf("PID %d: ...\n", getpid());
+
+  // Manually block signals instead of sa_mask
+  // Note: sa_mask is the preferred way
 
   /* Block SIGUSR1 */
   sigset_t set, old;

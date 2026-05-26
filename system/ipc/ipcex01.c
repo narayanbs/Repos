@@ -13,12 +13,6 @@ void sigint_handler(int sig) {
 int main(void) {
   char s[200];
 
-  struct sigaction sa = {
-      .sa_handler = sigint_handler,
-      .sa_flags = 0,  // or SA_RESTART for restarting.
-      .sa_mask = 0,   // which signals to block when sa_handler is running
-  };
-
   /*
    * Use of SA_RESTART
    * When our program is executing a blocked call
@@ -41,12 +35,20 @@ int main(void) {
    * i.e:  when a handler is running for SIGUSR1, SIGUSR1 is blocked.
    * We can mention which signals to additionally block when running the handler as shown below
    *
-   * Here we are blocking SIGINT
-   *
    * sigemptyset(&sa.sa_mask);
-   * sigaddset(&sa.sa_mask, SIGINT);
+   * sigaddset(&sa.sa_mask, <SIGNAL>);
    *
    */
+
+  struct sigaction sa = {
+      .sa_handler = sigint_handler,
+      .sa_flags = 0,  // or SA_RESTART for restarting.
+      .sa_mask = 0,   // which signals to block when sa_handler is running
+  };
+
+  /* here we are blocking SIGUSR1, just for demo */
+  sigemptyset(&sa.sa_mask);
+  sigaddset(&sa.sa_mask, SIGUSR1);
 
   /*
    * Register handlers for signals
