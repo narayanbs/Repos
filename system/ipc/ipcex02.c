@@ -31,6 +31,8 @@ int main(void) {
   /* Block SIGUSR1 */
   sigemptyset(&set);
   sigaddset(&set, SIGUSR1);
+  // change signal mask of current thread to block SIGUSR1
+  // store old mask in old for restoration later
   sigprocmask(SIG_BLOCK, &set, &old);
 
   //------------critical section ----
