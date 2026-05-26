@@ -20,6 +20,23 @@ int main(void) {
   };
 
   /*
+   * Use of SA_RESTART
+   * When our program is executing a blocked call
+   * read(fd, buf, size);
+   * and a signal arrives, the kernal behaviour would be
+   * stop read()
+   * run signal handler
+   * return from handler
+   * read() fails with: -1: errno == EINTR
+   * but with sa.sa_flags = SA_RESTART;
+   * signal interrupts read()
+   * handler runs
+   * handler returns
+   * kernel automatically resumes read()
+   *
+   */
+
+  /*
    * Note: By default current signal is blocked during its own handler.
    * i.e:  when a handler is running for SIGUSR1, SIGUSR1 is blocked.
    * We can mention which signals to additionally block when running the handler as shown below
