@@ -13,9 +13,8 @@ int main(void) {
   char s[300];
   int num, fd;
 
-  // Use mkfifo as mknod is not portable
-  // mkfifo(FIFO_NAME, 0666);
-  mknod(FIFO_NAME, S_IFIFO | 0666, 0);
+  // mknod(FIFO_NAME, S_IFIFO | 0666, 0); // This was the old obsolete way of creating FIFO
+  mkfifo(FIFO_NAME, 0666);
 
   printf("waiting for readers...\n");
   // Open will block until some other process
