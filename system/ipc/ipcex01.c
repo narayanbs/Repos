@@ -4,14 +4,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-/*
- * for handling multiple signals using the same handler
- *
- *  if (sig == SIGINT)
- *     printf("SIGINT received\n");
- *  else if (sig == SIGTERM)
- *     printf("SIGTERM received\n");
- */
 void sigint_handler(int sig) {
   /* using a char[] so that sizeof will work */
   const char msg[] = "Ahhh! SIGINT!\n";
@@ -24,8 +16,20 @@ int main(void) {
   struct sigaction sa = {
       .sa_handler = sigint_handler,
       .sa_flags = 0,  // or SA_RESTART for restarting.
-      .sa_mask = 0,
+      .sa_mask = 0,   // which signals to block when sa_handler is running
   };
+
+  /*
+   * Note: By default current signal is blocked during its own handler.
+   * i.e:  when a handler is running for SIGUSR1, SIGUSR1 is blocked.
+   * We can mention which signals to additionally block when running the handler as shown below
+   *
+   * Here we are blocking SIGINT
+   *
+   * sigemptyset(&sa.sa_mask);
+   * sigaddset(&sa.sa_mask, SIGINT);
+   *
+   */
 
   /*
    * Register handlers for signals
