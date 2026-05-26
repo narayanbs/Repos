@@ -1,5 +1,7 @@
 /*
  * We can terminate a program using exit.
+ * The argument to exit returns a status code to the operating system.
+ *
  * What exit() does before termination:
  * Calls all atexit() handlers (in reverse registration order)
  * Flushes and closes open streams/files
@@ -12,6 +14,9 @@
  *
  * The code after exit wont be executed.
  *
+ * Note: return statement inside main function also returns a status code to the OS.
+ * so return 0 is similar to exit(0). (Of course, the difference is that exit invokes handlers as
+ * mentioned above)
  */
 #include <stdio.h>
 #include <stdlib.h>
