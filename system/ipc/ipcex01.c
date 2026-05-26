@@ -4,6 +4,14 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+/*
+ * for handling multiple signals using the same handler
+ *
+ *  if (sig == SIGINT)
+ *     printf("SIGINT received\n");
+ *  else if (sig == SIGTERM)
+ *     printf("SIGTERM received\n");
+ */
 void sigint_handler(int sig) {
   /* using a char[] so that sizeof will work */
   const char msg[] = "Ahhh! SIGINT!\n";
