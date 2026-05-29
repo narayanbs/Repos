@@ -23,7 +23,7 @@
  */
 int sendall(int fd, const char *buf, size_t *len) {
   // Total bytes successfully sent so far
-  size_t total = 0;
+  size_t bytessent = 0;
 
   // Number of bytes still remaining to send
   size_t bytesleft = *len;
@@ -37,7 +37,7 @@ int sendall(int fd, const char *buf, size_t *len) {
   ssize_t n;
 
   // Continue sending until we've transmitted everything
-  while (total < *len) {
+  while (bytessent < *len) {
     /*
      * Attempt to send remaining bytes.
      *
@@ -46,7 +46,7 @@ int sendall(int fd, const char *buf, size_t *len) {
      * bytesleft     -> remaining bytes to transmit
      * MSG_NOSIGNAL  -> prevents SIGPIPE if peer disconnected
      */
-    n = send(fd, buf + total, bytesleft, MSG_NOSIGNAL);
+    n = send(fd, buf + bytessent, bytesleft, MSG_NOSIGNAL);
 
     // send() failed
     if (n == -1) {
@@ -72,14 +72,14 @@ int sendall(int fd, const char *buf, size_t *len) {
     if (n == 0) break;
 
     // Update total bytes successfully sent
-    total += n;
+    bytessent += n;
 
     // Reduce remaining byte count
     bytesleft -= n;
   }
 
   // Report actual bytes sent back to caller
-  *len = total;
+  *len = bytessent;
 
   /*
    * Success only if every requested byte
