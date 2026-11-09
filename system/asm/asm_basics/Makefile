@@ -14,3 +14,12 @@ Debian switched to PIC/PIE binaries in 64-bits mode and GCC by default will try 
 But We use absolute addresses in our examples like mov rdi, message.. So gcc will complain and raise an error.
 To prevent this we switchoff PIE by -no-pie flag. 
 
+
+if we used a different entry label instead of _start we need to specify it to the linker
+
+nasm -f elf64 program.asm -o program.o
+ld -e _first program.o -o program
+	or
+// for 32-bit
+nasm -f elf32 program.asm -o program.o
+ld -m elf_i386 -e _first program.o -o program
